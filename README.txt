@@ -3,7 +3,7 @@ NAME
 
     ALERT! This is vaporware documentation. Though the software is in
     development, it is not yet available for public release. Please contact
-    eric@alestic.com if you are interested in privately testing the alpha
+    eric@thinksome.com if you are interested in privately testing the alpha
     software and providing feedback on its functionality.
 
 SYNOPSIS
