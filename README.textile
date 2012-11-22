@@ -1,40 +1,32 @@
-
-----
-'''NAME'''
+h1. NAME
 
 ec2-expire-snapshots - Delete expired EBS snapshots in Amazon EC2
 
+h1. SYNOPSIS
 
-----
-'''SYNOPSIS'''
-
+<pre>
  ec2-expire-snapshots [opts] VOLUMEID...
+</pre>
 
+h1. OPTIONS
 
-----
-'''OPTIONS'''
-
-	-h --help:	Print help and exit.
-	-d --debug:	Debug mode.
-	-q --quiet:	Quiet mode.
-	-n --noaction:	Don't do it. Just say what you would have done.
-	--aws-access-key-id KEY:		--aws-secret-access-key SECRET:	Amazon AWS access key and secret access key. Defaults to environment variables or .awssecret file contents described below.
-	--aws-access-key-id-file KEYFILE:		--aws-secret-access-key-file SECRETFILE:	Files containing Amazon AWS access key and secret access key. Defaults to environment variables or .awssecret file contents described below.
-	--aws-credentials-file CREDENTIALSFILE:	File containing both the Amazon AWS access key and secret access key on separate lines and in that order. Defaults to contents of $AWS_CREDENTIALS environment variable or the value $HOME/.awssecret
-	--region REGION:	Specify a different EC2 region like "eu-west-1". Defaults to "us-east-1".
-	--expiration-tag-name TAGNAME [NOT YET IMPLEMENTED]:		--expiration-tag-optional [NOT YET IMPLEMENTED]:		--keep-first-yearly YEARCOUNT:		--keep-first-quarterly QUARTERCOUNT [NOT YET IMPLEMENTED]:		--keep-first-monthly MONTHCOUNT:		--keep-first-weekly WEEKCOUNT:		--week-starts DAYOFWEEK [NOT YET IMPLEMENTED]:		--keep-first-daily DAYCOUNT:		--keep-first-hourly HOURCOUNT:		--keep-most-recent COUNT:		--keep-all-since DATETIME:	These options identify which EBS snapshots should be preserved. See the "PRESERVATION OPTIONS" section for more details on what they mean and how to use them.
-	--force-delete-all:	This dangerous option overrides all other default option values, EBS snapshot tag values, and normal safety measures. All EBS snapshots for the specified EBS volumes are attemped to be deleted. Even the most recent EBS snapshot is deleted. The EBS snapshots are deleted even if the EBS volume does not exist. After this option is used, you will have no EBS snapshots for the specified EBS volume, unless there was some error condition that prevented an EBS snapshot from being deleted.
+- -h --help := Print help and exit.
+- -d --debug := Debug mode.
+- -q --quiet := Quiet mode.
+- -n --noaction := Don't do it. Just say what you would have done.
+- --aws-access-key-id KEY := - --aws-secret-access-key SECRET := Amazon AWS access key and secret access key. Defaults to environment variables or .awssecret file contents described below.
+- --aws-access-key-id-file KEYFILE := - --aws-secret-access-key-file SECRETFILE := Files containing Amazon AWS access key and secret access key. Defaults to environment variables or .awssecret file contents described below.
+- --aws-credentials-file CREDENTIALSFILE := File containing both the Amazon AWS access key and secret access key on separate lines and in that order. Defaults to contents of $AWS_CREDENTIALS environment variable or the value $HOME/.awssecret
+- --region REGION := Specify a different EC2 region like "eu-west-1". Defaults to "us-east-1".
+- --expiration-tag-name TAGNAME [NOT YET IMPLEMENTED] := - --expiration-tag-optional [NOT YET IMPLEMENTED] := - --keep-first-yearly YEARCOUNT := - --keep-first-quarterly QUARTERCOUNT [NOT YET IMPLEMENTED] := - --keep-first-monthly MONTHCOUNT := - --keep-first-weekly WEEKCOUNT := - --week-starts DAYOFWEEK [NOT YET IMPLEMENTED] := - --keep-first-daily DAYCOUNT := - --keep-first-hourly HOURCOUNT := - --keep-most-recent COUNT := - --keep-all-since DATETIME := These options identify which EBS snapshots should be preserved. See the "PRESERVATION OPTIONS" section for more details on what they mean and how to use them.
+- --force-delete-all := This dangerous option overrides all other default option values, EBS snapshot tag values, and normal safety measures. All EBS snapshots for the specified EBS volumes are attemped to be deleted. Even the most recent EBS snapshot is deleted. The EBS snapshots are deleted even if the EBS volume does not exist. After this option is used, you will have no EBS snapshots for the specified EBS volume, unless there was some error condition that prevented an EBS snapshot from being deleted.
 This is not a normal EBS snapshot expiration strategy, but is a convenience option for use when throwing away all data associated with an EBS volume that is no longer useful for any purpose.
 
+h1. ARGUMENTS
 
-----
-'''ARGUMENTS'''
+- VOLUMEID := EBS volume ids for which EBS snapshots are to be expired (deleted). The EBS volume does not have to exist for its EBS snapshots to be found and deleted.
 
-	VOLUMEID:	EBS volume ids for which EBS snapshots are to be expired (deleted). The EBS volume does not have to exist for its EBS snapshots to be found and deleted.
-
-
-----
-'''DESCRIPTION'''
+h1. DESCRIPTION
 
 This program deletes expired EBS snapshots of the specified EBS volumes on Amazon EC2. Different expiration strategies and specifications are supported.
 
@@ -46,37 +38,36 @@ Unless overridden, the software always preserves the most recent EBS snapshot, a
 
 Please read the descriptions of the preservation options carefully. They might not mean what they look like on first glance. For example, these mean two very different things:
 
-	--keep-all-since '3 days ago':	This option asks the program to preserve *every* EBS snapshot that was created since the current time 3 days ago, i.e., the most recent 72 hours.
-	--keep-first-daily 3:	This option asks the program to preserve the first completed EBS snapshot that was created on each of the last 3 calendar days including "today", "yesterday", and "2 days ago", calculated in UTC. All other EBS snapshots of the EBS volume may be deleted unless there are other conditions specified to prevent that.
+- --keep-all-since '3 days ago' := This option asks the program to preserve *every* EBS snapshot that was created since the current time 3 days ago, i.e., the most recent 72 hours.
+- --keep-first-daily 3 := This option asks the program to preserve the first completed EBS snapshot that was created on each of the last 3 calendar days including "today", "yesterday", and "2 days ago", calculated in UTC. All other EBS snapshots of the EBS volume may be deleted unless there are other conditions specified to prevent that.
 
-
-'''''PRESERVATION OPTIONS'''''
+h2. PRESERVATION OPTIONS
 
 The following options control which EBS snapshots are preserved. If an EBS snapshot is not flagged as one to be preserved, then it is considered expired and will be deleted.
 
 There are three basic expiration methodologies supported by this program.
 
-	1. Keep Recent:	This is the simplest approach where you tell the program to preserve a specifc number of the the most recent EBS snapshots created (e.g., "10") and/or to preserve any EBS snapshots created since a particular date/time in the past (e.g., "7 days ago").
+- 1. Keep Recent := This is the simplest approach where you tell the program to preserve a specifc number of the the most recent EBS snapshots created (e.g., "10") and/or to preserve any EBS snapshots created since a particular date/time in the past (e.g., "7 days ago").
 The specific options related to this approach include:
-		--keep-most-recent COUNT:	The most recent COUNT completed EBS snapshots will be preserved. By default, the most recent EBS snapshot is always preserved, but this can be overridden against our recommendation by explicitly specifying "0" in this option.
-		--keep-all-since DATETIME:	The EBS snapshots that were created at or after DATETIME will be preserved. The value may be an absolute date/time or it may be relative to now.
+- --keep-most-recent COUNT := The most recent COUNT completed EBS snapshots will be preserved. By default, the most recent EBS snapshot is always preserved, but this can be overridden against our recommendation by explicitly specifying "0" in this option.
+- --keep-all-since DATETIME := The EBS snapshots that were created at or after DATETIME will be preserved. The value may be an absolute date/time or it may be relative to now.
 See "DATE/TIME FORMATS" below for recommended value formats.
-	2. Keep One Per Calendar/Clock Cycle:	This approach lets you keep many very recent copies of EBS snapshots, somewhat fewer as you go into the near-term past, and more sparse backups as you get to distant history. The time frames involved are hourly, daily, weekly, monthly, quarterly, and yearly. You can specify as many or as few of these time periods as you wish, and save as many cycles of each as you wish.
+- 2. Keep One Per Calendar/Clock Cycle := This approach lets you keep many very recent copies of EBS snapshots, somewhat fewer as you go into the near-term past, and more sparse backups as you get to distant history. The time frames involved are hourly, daily, weekly, monthly, quarterly, and yearly. You can specify as many or as few of these time periods as you wish, and save as many cycles of each as you wish.
 The specific options related to this approach include:
-		--keep-first-hourly HOURCOUNT:			--keep-first-daily DAYCOUNT:			--keep-first-weekly WEEKCOUNT:			--keep-first-monthly MONTHCOUNT [NOT YET IMPLEMENTED]:			--keep-first-quarterly QUARTERCOUNT [NOT YET IMPLEMENTED]:			--keep-first-yearly YEARCOUNT:	Preserve the first completed EBS snapshot created in each of the most recent COUNT hours/days/weeks/months/quarters/years, respectively, calculated in UTC.
+- --keep-first-hourly HOURCOUNT := - --keep-first-daily DAYCOUNT := - --keep-first-weekly WEEKCOUNT := - --keep-first-monthly MONTHCOUNT [NOT YET IMPLEMENTED] := - --keep-first-quarterly QUARTERCOUNT [NOT YET IMPLEMENTED] := - --keep-first-yearly YEARCOUNT := Preserve the first completed EBS snapshot created in each of the most recent COUNT hours/days/weeks/months/quarters/years, respectively, calculated in UTC.
 The current hour/day/week/month/quarter/year is considered "1". A COUNT of "all", case insensitive, is equivalent to an infinitely high COUNT.
 A single EBS snasphot may match multiple options. For example, the first EBS snapshot in a month is also going to be the first EBS snapshot for a particular day, but perhaps not the first for any particular week. There may be no completed EBS snapshots in some time periods.
 The first completed EBS snapshot in a month may have been taken on a date later than the first day of the month and the dates don't need to be the same across different months. For example, the first snapshot of the month may have been created on the 3rd. This software simply preserves the oldest completed EBS snapshot in each relevant time period.
 If hourly EBS snapshots would be too many for you, you can simply not create EBS snapshots that often. For example, you could create EBS snapshots every 6 hours and then specify "--keep-first-hourly 30" to preserve about 4, depending on what exactly the time stamps are on the EBS snapshots.
-		--week-starts DAYOFWEEK [NOT YET IMPLEMENTED]:	Specifies the first day of each week as you think of it. This is used in conjunction with --keep-first-weekly to know which EBS snapshot you prefer to keep. Supported values include "Sunday", "Sun", "Monday", "Mon", case insensitively. The default first day of the week is Monday.
-	3. Ask The Snapshot:	This approach transfers the decision making about how long each EBS snapshot should be preserved onto some other process, perhaps the one that creates the EBS snapshots in the first place. That external process must create or add a tag to each EBS snapshot indicating how long it should be preserved or when it should expire.
+- --week-starts DAYOFWEEK [NOT YET IMPLEMENTED] := Specifies the first day of each week as you think of it. This is used in conjunction with --keep-first-weekly to know which EBS snapshot you prefer to keep. Supported values include "Sunday", "Sun", "Monday", "Mon", case insensitively. The default first day of the week is Monday.
+- 3. Ask The Snapshot := This approach transfers the decision making about how long each EBS snapshot should be preserved onto some other process, perhaps the one that creates the EBS snapshots in the first place. That external process must create or add a tag to each EBS snapshot indicating how long it should be preserved or when it should expire.
 This gives maximum flexibility for any system that goes beyond the simple rules understood by this program. It also allows for exceptions to be made to these rules by humans who make decisions about how long a specific EBS snapshot should be preserved.
 The specific options related to this approach include:
-		--expiration-tag-name TAGNAME [NOT YET IMPLEMENTED]:	Specifies the name of a tag to look for on each EBS snapshot indicating when that EBS snapshot is allowed to expire. The tag value can either be an absolute date/time, or a date/time offset expression that is to be calculated relative to the timestamp of the EBS snapshot's creation. For example, Expiration: +8 days
+- --expiration-tag-name TAGNAME [NOT YET IMPLEMENTED] := Specifies the name of a tag to look for on each EBS snapshot indicating when that EBS snapshot is allowed to expire. The tag value can either be an absolute date/time, or a date/time offset expression that is to be calculated relative to the timestamp of the EBS snapshot's creation. For example, Expiration: +8 days
 If the calculated expiration time is in the future or is unrecognized, then the EBS volume is preserved. A tag value of "never" or "forever" will prevent an EBS snapshot from ever being expired.
 If this option is specified multiple times, then each tag name is checked on each EBS snapshot, and any one of them can trigger the preservation of an EBS snapshot (even if another tag indicates that the snapshot has expired).
 See "DATE/TIME FORMATS" below for recommended tag value formats.
-		--expiration-tag-optional [NOT YET IMPLEMENTED]:	By default, if you specify one or more --expiration-tag-name options and an EBS snapshot does not have any of those tag names, then that EBS snapshot will be preserved.
+- --expiration-tag-optional [NOT YET IMPLEMENTED] := By default, if you specify one or more --expiration-tag-name options and an EBS snapshot does not have any of those tag names, then that EBS snapshot will be preserved.
 Including the --expiration-tag-optional option tells the program that EBS snapshots without the expiration tags are allowed to be expired.
 
 It is acceptable and encouraged to include options from across multiple of these strategies. This program will preserve all EBS snapshots that match any of the conditions.
@@ -87,14 +78,13 @@ Then, you could add the last 3 hours of all EBS snapshots just in case you end u
 
 Then, you could add in some optional expiration tags that can be set to override normal expiration and preserve for a longer time period any special EBS snapshots that you care to flag from time to time.
 
-
-'''''BACKGROUND'''''
+h2. BACKGROUND
 
 The creation of EBS snapshots on EC2 is a risk reduction and safety improvement measure in a few ways:
 
-*An EBS snapshot is a form of backup and disaster recovery preparedness, allowing you to restore data that may have been deleted, corrupted, or in any other way lost on the EBS volume due to hardware, system, environmental, or human error at a time after the EBS snapshot was created.
-*EBS snapshots are available from multiple availability zones in a given EC2 region even if the availability zone for the source EBS volume is inaccessible.
-*An EBS snapshot automatically and transparently reduces the rate of failure of the underlying EBS volume, due to the way that Amazon has designed and implemented the EBS system.
+* An EBS snapshot is a form of backup and disaster recovery preparedness, allowing you to restore data that may have been deleted, corrupted, or in any other way lost on the EBS volume due to hardware, system, environmental, or human error at a time after the EBS snapshot was created.
+* EBS snapshots are available from multiple availability zones in a given EC2 region even if the availability zone for the source EBS volume is inaccessible.
+* An EBS snapshot automatically and transparently reduces the rate of failure of the underlying EBS volume, due to the way that Amazon has designed and implemented the EBS system.
 The EBS system can automatically recover parts of a failing EBS volume from an EBS snapshot, if the blocks that are failing have not been modified since the EBS snapshot was taken. The more frequently an EBS volume is snapshotted, the lower its potential rate of failure.
 
 
@@ -102,40 +92,42 @@ With backup strategies using physical media, we normally introduce a backup rota
 
 So, why do we want to expire and delete EBS snapshots?
 
-*EBS snapshots cost money to store on EC2. Even though multiple EBS snapshots share the same copies of unchanged blocks, and even though the block contents are stored in a compressed format, these charges can add up over time when you have a lot of EBS snapshots.
-*There is a limit on the number of EBS snapshots a single EC2 account can have at any point in time. This limit can easily be increased by submitting a request to Amazon with an explanation of why you need more, but eventually you're probably going to want to trim back on how many EBS snapshots you retain.
-*Depending on the tools you are using to manage your AWS resources, it can get unwieldy to manage large numbers of EBS snapshots.
+* EBS snapshots cost money to store on EC2. Even though multiple EBS snapshots share the same copies of unchanged blocks, and even though the block contents are stored in a compressed format, these charges can add up over time when you have a lot of EBS snapshots.
+* There is a limit on the number of EBS snapshots a single EC2 account can have at any point in time. This limit can easily be increased by submitting a request to Amazon with an explanation of why you need more, but eventually you're probably going to want to trim back on how many EBS snapshots you retain.
+* Depending on the tools you are using to manage your AWS resources, it can get unwieldy to manage large numbers of EBS snapshots.
 
 This program tries to help manage your EBS snapshot storage costs by deleting EBS snapshots that you believe are the least helpful to your backup needs, while preserving a select set of EBS snapshots that you believe are likely to be the most important in the near and distant future.
 
 Just remember: When you (or this software) delete an EBS snapshot, it is gone forever and is completely irrecoverable!
 
-
-'''''SAFETY'''''
+h2. SAFETY
 
 This software attempts to be somewhat conservative and to protect you in a few ways:
 
-*This program will exit with error unless you specify at least one of the preservation options to give this program an indication of what your expiration strategy is and what EBS snapshots should be preserved.
-*If you use the --expiration-tag-name option and this program cannot make sense of the value for that tag on one of the EBS snapshots, then that EBS snapshot is not deleted.
-*If you specify --expiration-tag-name and --expiration-tag-optional without any of the --keep options, and the tag name(s) are not found on any EBS snapshots, then the program exits with an error instead of deleting all your EBS snapshots.
-*The most recent EBS snapshot for an EBS volume is always preserved unless you explicitly request it to be deleted with:
+* This program will exit with error unless you specify at least one of the preservation options to give this program an indication of what your expiration strategy is and what EBS snapshots should be preserved.
+* If you use the --expiration-tag-name option and this program cannot make sense of the value for that tag on one of the EBS snapshots, then that EBS snapshot is not deleted.
+* If you specify --expiration-tag-name and --expiration-tag-optional without any of the --keep options, and the tag name(s) are not found on any EBS snapshots, then the program exits with an error instead of deleting all your EBS snapshots.
+* The most recent EBS snapshot for an EBS volume is always preserved unless you explicitly request it to be deleted with:
+<pre>
  --keep-most-recent 0
+</pre>
 
 Deleting the most recent EBS snapshot reduces the reliability of the EBS volume and increases the time, IO, and cost required to create a new EBS snapshot in the future.
 
-*If any of the options indicate to this program that an EBS snapshot should be preserved, then it will not be deleted. For example, even if there is an expiration tag on an EBS snapshot that indicates it should expire yesterday, it will not be deleted if it is also the first EBS snapshot of this month and you specified --keep-first-monthly greater than zero.
-*EBS snapshots in the "pending" or other non-"completed" states are completely ignored by this program. For example, only "completed" snapshots are counted when deciding what is the first snapshot of a calendar period to preserve.
+* If any of the options indicate to this program that an EBS snapshot should be preserved, then it will not be deleted. For example, even if there is an expiration tag on an EBS snapshot that indicates it should expire yesterday, it will not be deleted if it is also the first EBS snapshot of this month and you specified --keep-first-monthly greater than zero.
+* EBS snapshots in the "pending" or other non-"completed" states are completely ignored by this program. For example, only "completed" snapshots are counted when deciding what is the first snapshot of a calendar period to preserve.
 We have no guarantee that a "pending" snapshot will ever complete successfully, but if it does complete before the next time you run this program, then it will be taken into account in the calculations and may become the new "first" EBS snapshot to be preserved for a time period.
 
 
-
-'''''DATE/TIME FORMATS'''''
+h2. DATE/TIME FORMATS
 
 This software supports and interprets a number of different date formats, but if you have a choice, here are some samples of recommended formats for absolute dates and times:
 
+<pre>
  "2011-12-31"
  "2012-01-15 14:56"
  "2015-07-22 09:23:45"
+</pre>
 
 Dates specified without times are assumed to be at "00:00:00" (midnight starting that date).
 
@@ -143,49 +135,60 @@ This software assumes that dates and times without time zones are in UTC.
 
 Here are some samples of recommended formats for relative time offsets for "expires in" tags on EBS snapshots:
 
+<pre>
  "+1 year"
  "+10 weeks"
  "+3 days"
  "+12 hours"
+</pre>
 
 Here are some examples of recommended formats for relative time offsets for the --keep-all-since option:
 
+<pre>
  "1 year ago"
  "10 weeks ago"
  "1 day ago"
  "12 hours ago"
+</pre>
 
-
-----
-'''EXAMPLES'''
+h1. EXAMPLES
 
 This simple example saves the most recent 10 snapshots:
 
+<pre>
     ec2-expire-snapshots                   \
         --keep-most-recent 10              \
         vol-11111111
+</pre>
 
 This example saves the last 7 days of snapshots:
 
+<pre>
     ec2-expire-snapshots                   \
         --keep-all-since "7 days ago"     \
         vol-22222222
+</pre>
 
 This example keeps one snapshot per day for the last 7 days, and one snapshot per month for the last 12 months. There is also an implicit saving of the most recent snapshot by default:
 
+<pre>
     ec2-expire-snapshots                   \
         --keep-first-daily 7               \
         --keep-first-monthly 12            \
         vol-33333333
+</pre>
 
 If you always determine how long a snapshot should be saved when you take the EBS snapshot and you store this value in a specific tag named "Expiration", then you may leave out all other "keep" options only pay attention to your tag. Any volume without the tag will be preserved forever in this example.
 
+<pre>
     ec2-expire-snapshots                   \
         --expiration-tag-name "Expiration" \
         vol-44444444
+</pre>
 
 This example combines a number of preservation strategies, any one of which could trigger the preservation of a given EBS snapshot:
 
+<pre>
     ec2-expire-snapshots                   \
         --keep-most-recent 1               \
         --keep-all-since "2 hours ago"     \
@@ -202,50 +205,52 @@ This example combines a number of preservation strategies, any one of which coul
         vol-55555555                       \
         vol-66666666                       \
         vol-77777777
+</pre>
 
 Delete all EBS snapshots associated with an EBS volume, no matter when they were taken or what their tags say. Make sure you really want to do this. There is no way to recover.
 
+<pre>
     ec2-expire-snapshots   \
         --force-delete-all \
         vol-88888888
+</pre>
 
+h1. ENVIRONMENT
 
-----
-'''ENVIRONMENT'''
+- $AWS_ACCESS_KEY_ID := Default value for access key. Can be overridden by command line options.
+- $AWS_SECRET_ACCESS_KEY := Default value for secret access key. Can be overridden by command line options.
+- $AWS_CREDENTIALS := Default value for filename containing both access key and secret access key on separate lines and in that order. Can be overriden by the --aws-credentials command line option.
 
-	$AWS_ACCESS_KEY_ID:	Default value for access key. Can be overridden by command line options.
-	$AWS_SECRET_ACCESS_KEY:	Default value for secret access key. Can be overridden by command line options.
-	$AWS_CREDENTIALS:	Default value for filename containing both access key and secret access key on separate lines and in that order. Can be overriden by the --aws-credentials command line option.
+h1. FILES
 
+- $HOME/.my.cnf := Default values for MySQL user and password are sought here in the standard format.
+- $HOME/.awssecret := Default values for access key and secret access keys are sought here. Can be overridden by environment variables and command line options.
 
-----
-'''FILES'''
-
-	$HOME/.my.cnf:	Default values for My''''''SQL user and password are sought here in the standard format.
-	$HOME/.awssecret:	Default values for access key and secret access keys are sought here. Can be overridden by environment variables and command line options.
-
-
-----
-'''INSTALLATION'''
+h1. INSTALLATION
 
 [THIS WILL NOT WORK UNTIL THIS SOFTWARE HAS BEEN RELEASED!]
 
-The ec2-expire-snapshots program is part of the '''ec2-expire-snapshots''' package.
+The ec2-expire-snapshots program is part of the *ec2-expire-snapshots* package.
 
-On most Ubuntu releases, the '''ec2-expire-snapshots''' package can be installed directly from the Alestic.com PPA using the following commands:
+On most Ubuntu releases, the *ec2-expire-snapshots* package can be installed directly from the Alestic.com PPA using the following commands:
 
+<pre>
  sudo add-apt-repository ppa:alestic
  sudo apt-get update
  sudo apt-get install ec2-expire-snapshots
+</pre>
 
 This program may also require the installation of the Net::Amazon::EC2 Perl package from CPAN. On Ubuntu 10.04 Lucid and higher, this should happen automatically by the dependency on the libnet-amazon-ec2-perl package.
 
 On some earlier releases of Ubuntu you can install the required package with the following command:
 
+<pre>
  sudo PERL_MM_USE_DEFAULT=1 cpan Net::Amazon::EC2
+</pre>
 
 On Ubuntu 8.04 Hardy, use the following commands instead:
 
+<pre>
  code=$(lsb_release -cs)
  echo "deb http://ppa.launchpad.net/alestic/ppa/ubuntu $code main"|
    sudo tee /etc/apt/sources.list.d/alestic-ppa.list
@@ -253,17 +258,14 @@ On Ubuntu 8.04 Hardy, use the following commands instead:
  sudo apt-get update
  sudo apt-get install ec2-expire-snapshots build-essential
  sudo cpan Net::Amazon::EC2
+</pre>
 
 The default values can be accepted for most of the prompts, though it is necessary to select a CPAN mirror on Hardy.
 
+h1. SEE ALSO
 
-----
-'''SEE ALSO'''
-
-	Amazon EC2:		Amazon EC2 EBS (Elastic Block Store):		ec2-consistent-snapshot:	
-
-----
-'''CAVEATS'''
+- Amazon EC2 := - Amazon EC2 EBS (Elastic Block Store) := - ec2-consistent-snapshot := 
+h1. CAVEATS
 
 EBS snapshots reduce risk. This program deletes EBS snapshots. Therefore, the use of this program increases risk.
 
@@ -281,35 +283,31 @@ You are responsible for what happens in your EC2 account. This software is inten
 
 This program tries hard to figure out some values are for the AWS key and AWS secret access key. In fact, it tries too hard. This results in possibly using some credentials it finds that are not the correct ones you wish to use, especially if you are operating in an environment where multiple sets of credentials are in use.
 
-
-----
-'''BUGS'''
+h1. BUGS
 
 Please report bugs at https://github.com/alestic/ec2-expire-snapshots/issues
 
-
-----
-'''CREDITS'''
+h1. CREDITS
 
 Thanks to the following for performing tests on early versions, providing feedback, and patches:
 
+<pre>
   Christian Marquardt
+</pre>
 
-
-----
-'''AUTHOR'''
+h1. AUTHOR
 
 Eric Hammond <ehammond@thinksome.com>
 
-
-----
-'''LICENSE'''
+h1. LICENSE
 
 Copyright 2009-2012 Eric Hammond <ehammond@thinksome.com>
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
 
+<pre>
  http://www.apache.org/licenses/LICENSE-2.0
+</pre>
 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 
