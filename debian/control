@@ -8,7 +8,7 @@ Homepage: https://github.com/alestic/ec2-expire-snapshots
 Vcs-Git: git@github.com:alestic/ec2-expire-snapshots.git
 
 Package: ec2-expire-snapshots
-Architecture: any
+Architecture: all
 Depends: ${misc:Depends}, perl, libnet-amazon-ec2-perl, libfile-slurp-perl, libdate-manip-perl, libdatetime-perl, libdatetime-format-iso8601-perl
 Description: Delete expired EBS snapshots in Amazon EC2
  The "ec2-expire-snapshots" command deletes EC2 EBS snapshots based on
