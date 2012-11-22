@@ -1,10 +1,5 @@
 NAME
-    ec2-expire-snapshots - Delete expired EBS snapshots for volumes on EC2
-
-    ALERT! This is vaporware documentation. Though the software is in
-    development, it is not yet available for public release. Please contact
-    ehammond@thinksome.com if you are interested in privately testing the
-    alpha software and providing feedback on its functionality.
+    ec2-expire-snapshots - Delete expired EBS snapshots in Amazon EC2
 
 SYNOPSIS
      ec2-expire-snapshots [opts] VOLUMEID...
@@ -42,8 +37,8 @@ OPTIONS
         Specify a different EC2 region like "eu-west-1". Defaults to
         "us-east-1".
 
-    --expiration-tag-name TAGNAME
-    --expiration-tag-optional
+    --expiration-tag-name TAGNAME [NOT YET IMPLEMENTED]
+    --expiration-tag-optional [NOT YET IMPLEMENTED]
     --keep-first-yearly YEARCOUNT
     --keep-first-quarterly QUARTERCOUNT [NOT YET IMPLEMENTED]
     --keep-first-monthly MONTHCOUNT
@@ -83,7 +78,7 @@ DESCRIPTION
     supported.
 
     When deciding what options to use, it's easier to think of which EBS
-    snapshots should be preserved instead of which should be expired and
+    snapshots should be *preserved* instead of which should be expired and
     deleted.
 
     As a general rule, all EBS snapshots that you have not requested to be
@@ -202,7 +197,7 @@ DESCRIPTION
 
         The specific options related to this approach include:
 
-        --expiration-tag-name TAGNAME
+        --expiration-tag-name TAGNAME [NOT YET IMPLEMENTED]
             Specifies the name of a tag to look for on each EBS snapshot
             indicating when that EBS snapshot is allowed to expire. The tag
             value can either be an absolute date/time, or a date/time offset
@@ -221,7 +216,7 @@ DESCRIPTION
 
             See "DATE/TIME FORMATS" below for recommended tag value formats.
 
-        --expiration-tag-optional
+        --expiration-tag-optional [NOT YET IMPLEMENTED]
             By default, if you specify one or more --expiration-tag-name
             options and an EBS snapshot does not have any of those tag
             names, then that EBS snapshot will be preserved.
@@ -377,6 +372,37 @@ DESCRIPTION
      "12 hours ago"
 
 EXAMPLES
+    This simple example saves the most recent 10 snapshots:
+
+        ec2-expire-snapshots                   \
+            --keep-most-recent 10              \
+            vol-11111111
+
+    This example saves the last 7 days of snapshots:
+
+        ec2-expire-snapshots                   \
+            --keep-all-since "7 days ago"     \
+            vol-22222222
+
+    This example keeps one snapshot per day for the last 7 days, and one
+    snapshot per month for the last 12 months. There is also an implicit
+    saving of the most recent snapshot by default:
+
+        ec2-expire-snapshots                   \
+            --keep-first-daily 7               \
+            --keep-first-monthly 12            \
+            vol-33333333
+
+    If you always determine how long a snapshot should be saved when you
+    take the EBS snapshot and you store this value in a specific tag named
+    "Expiration", then you may leave out all other "keep" options only pay
+    attention to your tag. Any volume without the tag will be preserved
+    forever in this example.
+
+        ec2-expire-snapshots                   \
+            --expiration-tag-name "Expiration" \
+            vol-44444444
+
     This example combines a number of preservation strategies, any one of
     which could trigger the preservation of a given EBS snapshot:
 
@@ -393,19 +419,9 @@ EXAMPLES
             --expiration-tag-name "Expires"    \
             --expiration-tag-name "Keep-For"   \
             --expiration-tag-name "Keep-Until" \
-            vol-11111111                       \
-            vol-22222222                       \
-            vol-33333333
-
-    If you always determine how long a snapshot should be saved when you
-    take the EBS snapshot and you store this value in a specific tag, then
-    you may leave out all other "keep" options only pay attention to your
-    tag. Any volume without the tag will be preserved forever in this
-    example.
-
-        ec2-expire-snapshots                   \
-            --expiration-tag-name "Expiration" \
-            vol-44444444
+            vol-55555555                       \
+            vol-66666666                       \
+            vol-77777777
 
     Delete all EBS snapshots associated with an EBS volume, no matter when
     they were taken or what their tags say. Make sure you really want to do
@@ -413,7 +429,7 @@ EXAMPLES
 
         ec2-expire-snapshots   \
             --force-delete-all \
-            vol-99999999
+            vol-88888888
 
 ENVIRONMENT
     $AWS_ACCESS_KEY_ID
@@ -518,6 +534,12 @@ CAVEATS
 BUGS
     Please report bugs at
     https://github.com/alestic/ec2-expire-snapshots/issues
+
+CREDITS
+    Thanks to the following for performing tests on early versions,
+    providing feedback, and patches:
+
+      Christian Marquardt
 
 AUTHOR
     Eric Hammond <ehammond@thinksome.com>
