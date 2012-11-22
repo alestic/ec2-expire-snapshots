@@ -479,7 +479,7 @@ INSTALLATION
 SEE ALSO
     Amazon EC2
     Amazon EC2 EBS (Elastic Block Store)
-    ec2-consistent-snapshots
+    ec2-consistent-snapshot
 
 CAVEATS
     EBS snapshots reduce risk. This program deletes EBS snapshots.
