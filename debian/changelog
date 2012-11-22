@@ -1,3 +1,9 @@
+ec2-expire-snapshots (0.02) quantal; urgency=low
+
+  * bugfix: Use File::Slurp so credential files can be loaded.
+
+ -- Eric Hammond <ehammond@thinksome.com>  Thu, 22 Nov 2012 00:00:18 -0800
+
 ec2-expire-snapshots (0.01) quantal; urgency=low
 
   * Initial release
