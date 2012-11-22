@@ -10,7 +10,7 @@ h1. SYNOPSIS
 
 h1. OPTIONS
 
-- -h --help := Print help and exit.
+- @-h --help@ := Print help and exit.
 - -d --debug := Debug mode.
 - -q --quiet := Quiet mode.
 - -n --noaction := Don't do it. Just say what you would have done.
@@ -82,9 +82,9 @@ h2. BACKGROUND
 
 The creation of EBS snapshots on EC2 is a risk reduction and safety improvement measure in a few ways:
 
-* An EBS snapshot is a form of backup and disaster recovery preparedness, allowing you to restore data that may have been deleted, corrupted, or in any other way lost on the EBS volume due to hardware, system, environmental, or human error at a time after the EBS snapshot was created.
-* EBS snapshots are available from multiple availability zones in a given EC2 region even if the availability zone for the source EBS volume is inaccessible.
-* An EBS snapshot automatically and transparently reduces the rate of failure of the underlying EBS volume, due to the way that Amazon has designed and implemented the EBS system.
+# An EBS snapshot is a form of backup and disaster recovery preparedness, allowing you to restore data that may have been deleted, corrupted, or in any other way lost on the EBS volume due to hardware, system, environmental, or human error at a time after the EBS snapshot was created.
+# EBS snapshots are available from multiple availability zones in a given EC2 region even if the availability zone for the source EBS volume is inaccessible.
+# An EBS snapshot automatically and transparently reduces the rate of failure of the underlying EBS volume, due to the way that Amazon has designed and implemented the EBS system.
 The EBS system can automatically recover parts of a failing EBS volume from an EBS snapshot, if the blocks that are failing have not been modified since the EBS snapshot was taken. The more frequently an EBS volume is snapshotted, the lower its potential rate of failure.
 
 
@@ -92,9 +92,9 @@ With backup strategies using physical media, we normally introduce a backup rota
 
 So, why do we want to expire and delete EBS snapshots?
 
-* EBS snapshots cost money to store on EC2. Even though multiple EBS snapshots share the same copies of unchanged blocks, and even though the block contents are stored in a compressed format, these charges can add up over time when you have a lot of EBS snapshots.
-* There is a limit on the number of EBS snapshots a single EC2 account can have at any point in time. This limit can easily be increased by submitting a request to Amazon with an explanation of why you need more, but eventually you're probably going to want to trim back on how many EBS snapshots you retain.
-* Depending on the tools you are using to manage your AWS resources, it can get unwieldy to manage large numbers of EBS snapshots.
+# EBS snapshots cost money to store on EC2. Even though multiple EBS snapshots share the same copies of unchanged blocks, and even though the block contents are stored in a compressed format, these charges can add up over time when you have a lot of EBS snapshots.
+# There is a limit on the number of EBS snapshots a single EC2 account can have at any point in time. This limit can easily be increased by submitting a request to Amazon with an explanation of why you need more, but eventually you're probably going to want to trim back on how many EBS snapshots you retain.
+# Depending on the tools you are using to manage your AWS resources, it can get unwieldy to manage large numbers of EBS snapshots.
 
 This program tries to help manage your EBS snapshot storage costs by deleting EBS snapshots that you believe are the least helpful to your backup needs, while preserving a select set of EBS snapshots that you believe are likely to be the most important in the near and distant future.
 
@@ -104,18 +104,18 @@ h2. SAFETY
 
 This software attempts to be somewhat conservative and to protect you in a few ways:
 
-* This program will exit with error unless you specify at least one of the preservation options to give this program an indication of what your expiration strategy is and what EBS snapshots should be preserved.
-* If you use the --expiration-tag-name option and this program cannot make sense of the value for that tag on one of the EBS snapshots, then that EBS snapshot is not deleted.
-* If you specify --expiration-tag-name and --expiration-tag-optional without any of the --keep options, and the tag name(s) are not found on any EBS snapshots, then the program exits with an error instead of deleting all your EBS snapshots.
-* The most recent EBS snapshot for an EBS volume is always preserved unless you explicitly request it to be deleted with:
+# This program will exit with error unless you specify at least one of the preservation options to give this program an indication of what your expiration strategy is and what EBS snapshots should be preserved.
+# If you use the --expiration-tag-name option and this program cannot make sense of the value for that tag on one of the EBS snapshots, then that EBS snapshot is not deleted.
+# If you specify --expiration-tag-name and --expiration-tag-optional without any of the --keep options, and the tag name(s) are not found on any EBS snapshots, then the program exits with an error instead of deleting all your EBS snapshots.
+# The most recent EBS snapshot for an EBS volume is always preserved unless you explicitly request it to be deleted with:
 <pre>
- --keep-most-recent 0
+ C<--keep-most-recent 0>
 </pre>
 
 Deleting the most recent EBS snapshot reduces the reliability of the EBS volume and increases the time, IO, and cost required to create a new EBS snapshot in the future.
 
-* If any of the options indicate to this program that an EBS snapshot should be preserved, then it will not be deleted. For example, even if there is an expiration tag on an EBS snapshot that indicates it should expire yesterday, it will not be deleted if it is also the first EBS snapshot of this month and you specified --keep-first-monthly greater than zero.
-* EBS snapshots in the "pending" or other non-"completed" states are completely ignored by this program. For example, only "completed" snapshots are counted when deciding what is the first snapshot of a calendar period to preserve.
+# If any of the options indicate to this program that an EBS snapshot should be preserved, then it will not be deleted. For example, even if there is an expiration tag on an EBS snapshot that indicates it should expire yesterday, it will not be deleted if it is also the first EBS snapshot of this month and you specified --keep-first-monthly greater than zero.
+# EBS snapshots in the "pending" or other non-"completed" states are completely ignored by this program. For example, only "completed" snapshots are counted when deciding what is the first snapshot of a calendar period to preserve.
 We have no guarantee that a "pending" snapshot will ever complete successfully, but if it does complete before the next time you run this program, then it will be taken into account in the calculations and may become the new "first" EBS snapshot to be preserved for a time period.
 
 
