@@ -109,7 +109,7 @@ This software attempts to be somewhat conservative and to protect you in a few w
 # If you specify @--expiration-tag-name@ and @--expiration-tag-optional@ without any of the @--keep@ options, and the tag name(s) are not found on any EBS snapshots, then the program exits with an error instead of deleting all your EBS snapshots.
 # The most recent EBS snapshot for an EBS volume is always preserved unless you explicitly request it to be deleted with:
 <pre>
-   --keep-most-recent 0
+ --keep-most-recent 0
 </pre>
 
 Deleting the most recent EBS snapshot reduces the reliability of the EBS volume and increases the time, IO, and cost required to create a new EBS snapshot in the future.
@@ -156,63 +156,63 @@ h1. EXAMPLES
 This simple example saves the most recent 10 snapshots:
 
 <pre>
-    ec2-expire-snapshots                   \
-        --keep-most-recent 10              \
-        vol-11111111
+ ec2-expire-snapshots                   \
+     --keep-most-recent 10              \
+     vol-11111111
 </pre>
 
 This example saves the last 7 days of snapshots:
 
 <pre>
-    ec2-expire-snapshots                   \
-        --keep-all-since "7 days ago"     \
-        vol-22222222
+ ec2-expire-snapshots                   \
+     --keep-all-since "7 days ago"     \
+     vol-22222222
 </pre>
 
 This example keeps one snapshot per day for the last 7 days, and one snapshot per month for the last 12 months. There is also an implicit saving of the most recent snapshot by default:
 
 <pre>
-    ec2-expire-snapshots                   \
-        --keep-first-daily 7               \
-        --keep-first-monthly 12            \
-        vol-33333333
+ ec2-expire-snapshots                   \
+     --keep-first-daily 7               \
+     --keep-first-monthly 12            \
+     vol-33333333
 </pre>
 
 If you always determine how long a snapshot should be saved when you take the EBS snapshot and you store this value in a specific tag named "Expiration", then you may leave out all other "keep" options only pay attention to your tag. Any volume without the tag will be preserved forever in this example.
 
 <pre>
-    ec2-expire-snapshots                   \
-        --expiration-tag-name "Expiration" \
-        vol-44444444
+ ec2-expire-snapshots                   \
+     --expiration-tag-name "Expiration" \
+     vol-44444444
 </pre>
 
 This example combines a number of preservation strategies, any one of which could trigger the preservation of a given EBS snapshot:
 
 <pre>
-    ec2-expire-snapshots                   \
-        --keep-most-recent 1               \
-        --keep-all-since "2 hours ago"     \
-        --keep-first-hourly 24             \
-        --keep-first-daily 7               \
-        --keep-first-weekly 4              \
-        --keep-first-monthly 12            \
-        --keep-first-yearly all            \
-        --expiration-tag-optional          \
-        --expiration-tag-name "Expiration" \
-        --expiration-tag-name "Expires"    \
-        --expiration-tag-name "Keep-For"   \
-        --expiration-tag-name "Keep-Until" \
-        vol-55555555                       \
-        vol-66666666                       \
-        vol-77777777
+ ec2-expire-snapshots                   \
+     --keep-most-recent 1               \
+     --keep-all-since "2 hours ago"     \
+     --keep-first-hourly 24             \
+     --keep-first-daily 7               \
+     --keep-first-weekly 4              \
+     --keep-first-monthly 12            \
+     --keep-first-yearly all            \
+     --expiration-tag-optional          \
+     --expiration-tag-name "Expiration" \
+     --expiration-tag-name "Expires"    \
+     --expiration-tag-name "Keep-For"   \
+     --expiration-tag-name "Keep-Until" \
+     vol-55555555                       \
+     vol-66666666                       \
+     vol-77777777
 </pre>
 
 Delete all EBS snapshots associated with an EBS volume, no matter when they were taken or what their tags say. Make sure you really want to do this. There is no way to recover.
 
 <pre>
-    ec2-expire-snapshots   \
-        --force-delete-all \
-        vol-88888888
+ ec2-expire-snapshots   \
+     --force-delete-all \
+     vol-88888888
 </pre>
 
 h1. ENVIRONMENT
