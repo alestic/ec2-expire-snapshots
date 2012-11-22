@@ -1,0 +1,5 @@
+ec2-expire-snapshots (0.01) quantal; urgency=low
+
+  * Initial release
+
+ -- Eric Hammond <ehammond@thinksome.com>  Wed, 21 Nov 2012 16:44:14 -0800

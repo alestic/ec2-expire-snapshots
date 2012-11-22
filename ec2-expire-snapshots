@@ -1,0 +1,1174 @@
+#!/usr/bin/perl
+#
+# Copyright (C) 2009-2012 Eric Hammond <ehammond@thinksome.com>
+#
+use strict;
+use warnings;
+(our $Prog) = ($0 =~ m%([^/]+)$%);
+use Getopt::Long;
+use Pod::Usage;
+use Date::Manip;
+use DateTime;
+use DateTime::Format::ISO8601;
+use Net::Amazon::EC2;
+
+#---- OPTIONS ----
+
+my $Help                       = 0;
+my $Debug                      = 0;
+my $Quiet                      = 0;
+my $Noaction                   = 0;
+
+my $aws_access_key_id          = $ENV{AWS_ACCESS_KEY_ID};
+my $aws_secret_access_key      = $ENV{AWS_SECRET_ACCESS_KEY};
+my $aws_access_key_id_file     = $ENV{AWS_ACCESS_KEY_ID};
+my $aws_secret_access_key_file = $ENV{AWS_SECRET_ACCESS_KEY};
+my $aws_credentials_file       = $ENV{AWS_CREDENTIALS};
+my $region                     = undef;
+my $ec2_endpoint               = undef;
+
+my $force_delete_all           = undef;
+my $keep_first_yearly          = undef;
+my $keep_first_quarterly       = undef;
+my $keep_first_monthly         = undef;
+my $keep_first_weekly          = undef;
+my $week_starts                = 'Sun';
+my $keep_first_daily           = undef;
+my $keep_first_hourly          = undef;
+my $keep_most_recent           = undef;
+my $keep_all_since             = undef;
+my $expiration_tag_name        = undef;
+my $expiration_tag_optional    = undef;
+
+Getopt::Long::config('no_ignore_case');
+GetOptions(
+  'help|?'                       => \$Help,
+  'debug'                        => \$Debug,
+  'quiet'                        => \$Quiet,
+  'noaction'                     => \$Noaction,
+
+  'aws-access-key-id=s'          => \$aws_access_key_id,
+  'aws-secret-access-key=s'      => \$aws_secret_access_key,
+  'aws-access-key-id-file=s'     => \$aws_access_key_id_file,
+  'aws-secret-access-key-file=s' => \$aws_secret_access_key_file,
+  'aws-credentials-file=s'       => \$aws_credentials_file,
+  'region=s'                     => \$region,
+  'ec2-endpoint=s'               => \$ec2_endpoint,
+
+  'force-delete-all'             => \$force_delete_all,
+  'keep-first-yearly=s'          => \$keep_first_yearly,
+  'keep-first-quarterly=s'       => \$keep_first_quarterly,
+  'keep-first-monthly=s'         => \$keep_first_monthly,
+  'keep-first-weekly=s'          => \$keep_first_weekly,
+  'week-starts=s'                => \$week_starts,
+  'keep-first-daily=s'           => \$keep_first_daily,
+  'keep-first-hourly=s'          => \$keep_first_hourly,
+  'keep-most-recent=s'           => \$keep_most_recent,
+  'keep-all-since=s'             => \$keep_all_since,
+  'expiration-tag-name=s'        => \$expiration_tag_name,
+  'expiration-tag-optional'      => \$expiration_tag_optional,
+) or pod2usage(2);
+
+my $filesystem_frozen = 0;
+
+pod2usage(1) if $Help;
+
+my @volume_ids = @ARGV;
+pod2usage(2) unless scalar @volume_ids;
+
+$ec2_endpoint ||= "https://ec2.$region.amazonaws.com" if $region;
+
+my $constraints = {
+    force_delete_all           => $force_delete_all,
+    keep_first_yearly          => $keep_first_yearly,
+    keep_first_quarterly       => $keep_first_quarterly,
+    keep_first_monthly         => $keep_first_monthly,
+    keep_first_weekly          => $keep_first_weekly,
+    week_starts                => $week_starts,
+    keep_first_daily           => $keep_first_daily,
+    keep_first_hourly          => $keep_first_hourly,
+    keep_most_recent           => $keep_most_recent,
+    keep_all_since             => $keep_all_since,
+    expiration_tag_name        => $expiration_tag_name,
+    expiration_tag_optional    => $expiration_tag_optional,
+};
+
+#---- MAIN ----
+
+($aws_access_key_id,      $aws_secret_access_key) = determine_access_keys(
+ $aws_access_key_id,      $aws_secret_access_key,
+ $aws_access_key_id_file, $aws_secret_access_key_file,
+ $aws_credentials_file,
+);
+die "$Prog: ERROR: Can't find AWS access key or secret access key"
+  unless $aws_access_key_id and $aws_secret_access_key;
+$Debug and warn "$Prog: Using AWS access key: $aws_access_key_id\n";
+
+# EC2 API object
+my $ec2 = Net::Amazon::EC2->new(
+    AWSAccessKeyId  => $aws_access_key_id,
+    SecretAccessKey => $aws_secret_access_key,
+    ($ec2_endpoint ? (base_url => $ec2_endpoint) : ()),
+    # ($Debug ? (debug => 1) : ()),
+);
+
+my $snapshots_for_volumes = snapshots_for_volumes($ec2);
+for my $volume_id ( @volume_ids ) {
+    expire_snapshots_for_volume($ec2, $volume_id,
+                                $snapshots_for_volumes->{$volume_id},
+                                $constraints);
+}
+
+exit 0;
+
+#---- METHODS ----
+
+# Figure out which AWS credentials to use
+sub determine_access_keys {
+  my ($aws_access_key_id,      $aws_secret_access_key,
+      $aws_access_key_id_file, $aws_secret_access_key_file,
+      $aws_credentials_file,
+     ) = @_;
+
+  # 1. --aws-access-key-id and --aws-secret-access-key
+  return ($aws_access_key_id, $aws_secret_access_key)
+    if $aws_access_key_id;
+
+  # 2. --aws-access-key-id-file and --aws-secret-access-key-file
+  if ( $aws_access_key_id_file ) {
+    die "$Prog: Please provide both --aws-access-key-id-file and --aws-secret-access-key-file"
+      unless $aws_secret_access_key_file;
+    $aws_access_key_id    = File::Slurp::read_file($aws_access_key_id_file);
+    $aws_secret_access_key= File::Slurp::read_file($aws_secret_access_key_file);
+    chomp($aws_access_key_id);
+    chomp($aws_secret_access_key);
+    return ($aws_access_key_id, $aws_secret_access_key);
+  }
+
+  # 3. $AWS_CREDENTIALS or $HOME/.awssecret
+  return read_awssecret($aws_credentials_file);
+}
+
+
+# Look for the access keys in $AWS_CREDENTIALS or ~/.awssecret
+sub read_awssecret {
+  my ($aws_credentials_file) = @_;
+      $aws_credentials_file  ||= "$ENV{HOME}/.awssecret";
+  my ($aws_access_key_id, $aws_secret_access_key);
+  eval {
+    ($aws_access_key_id, $aws_secret_access_key) =
+      File::Slurp::read_file($aws_credentials_file);
+    chomp $aws_access_key_id;
+    chomp $aws_secret_access_key;
+  };
+  return ($aws_access_key_id, $aws_secret_access_key);
+}
+
+# Return hash of { volume_id => [ snapshot, snapshot, ... ], ... }
+sub snapshots_for_volumes {
+    my ($ec2) = @_;
+
+    my $snapshots = $ec2->describe_snapshots();
+    die "$Prog: ERROR: Unable to get list of snapshots from EC2"
+        unless defined $snapshots;
+
+    my $snapshots_for_volumes = {};
+    for my $snapshot ( @$snapshots ) {
+        my $volume_id = $snapshot->volume_id;
+        $snapshots_for_volumes->{$volume_id} ||= [];
+        push(@{$snapshots_for_volumes->{$volume_id}}, $snapshot);
+    }
+    return $snapshots_for_volumes;
+}
+
+
+# Do the expiration for a single volume
+sub expire_snapshots_for_volume {
+    my ($ec2, $volume_id, $snapshots, $constraints) = @_;
+
+    if ( not defined $snapshots ) {
+        warn "$Prog: WARNING: No snapshots found for volume: $volume_id\n";
+        return undef;
+    }
+    $Debug and warn "$Prog: Processing volume $volume_id\n";
+
+    my $good_snapshots = filter_snapshots($volume_id, $snapshots);
+    my $candidate_list = build_candidate_list($good_snapshots);
+    my $snapshots_to_delete =
+        expired_for_constraints($volume_id, $candidate_list, $constraints);
+
+    my $count_to_delete = scalar(@$snapshots_to_delete);
+    my $count_to_keep   = scalar(@$snapshots) - $count_to_delete;
+    $Debug and warn "$Prog: $volume_id: Keeping $count_to_keep snapshot",
+                                      ($count_to_keep == 1 ? "" : "s"),".",
+                                      " Deleting $count_to_delete snapshot",
+                                      ($count_to_delete == 1 ? "" : "s"),"\n";
+
+    for my $snapshot ( @$snapshots_to_delete ) {
+        my $snapshot_id = $snapshot->{snapshot_id};
+        $Quiet or warn "$Prog: $volume_id: Deleting snapshot: $snapshot_id (",
+            $snapshot->start_time, ")\n";
+        if ( !$Noaction ) {
+            $ec2->delete_snapshot(SnapshotId => $snapshot_id) 
+                or die "$Prog: ERROR deleting snapshot: $snapshot_id\n";
+        }
+    }
+}
+
+# Filter out uncompleted snapshots
+sub filter_snapshots {
+    my ($volume_id, $snapshots) = @_;
+
+    my $completed_snapshots = [];
+    for my $snapshot ( @$snapshots ) {
+        if ( $snapshot->status eq 'completed' ) {
+            push @$completed_snapshots, $snapshot;
+        } else {
+            $Quiet or
+                warn "$Prog: $volume_id: Status '", $snapshot->status,
+                "': Keeping ", $snapshot->snapshot_id, "\n";
+        }
+    }
+    return $completed_snapshots;
+}
+
+# Convert snapshot list into expected candidate list format
+sub build_candidate_list {
+    my ($snapshots) = @_;
+
+    my $candidate_list = [];
+    for my $snapshot ( @$snapshots ) {
+        push @$candidate_list, {
+            timestamp => $snapshot->start_time,
+            id        => $snapshot->snapshot_id,
+            tags      => 'TBD',
+            object    => $snapshot,
+        };
+    }
+    return $candidate_list;
+}
+
+
+#
+# Determine which items have expired given a list of keep constraints
+#
+# Input candidate list should be array of hashes:
+#
+#   [ { timestamp => $timestamp, id => $id, object => $object }, ... ]
+#
+# where:
+#
+#   timestamp - can be decoded with DateTime
+#   id        - some meaningful string for debugging
+#   object    - opaque object meaningful to caller
+#
+# This method returns an array of the resulting objects that should
+# be expired.
+#
+sub expired_for_constraints {
+    my ($group_name, $unsorted_candidate_list, $constraints) = @_;
+
+    my $candidate_list_datetime = add_datetime($group_name,
+                                               $unsorted_candidate_list);
+    my $candidate_list = [sort { $a->{datetime} <=> $b->{datetime} }
+                               @$candidate_list_datetime];
+
+    #TBD: Die with error unless some keep/tag/delete option was specified.
+
+    return force_delete_all($group_name, $candidate_list, $constraints)
+        if $constraints->{force_delete_all};
+
+    my @keep_list = ();
+
+    push @keep_list, keep_all_since($group_name, $candidate_list,
+                                    $constraints->{keep_all_since});
+
+    push @keep_list, keep_first_yearly($group_name, $candidate_list,
+                                       $constraints->{keep_first_yearly});
+
+    push @keep_list, keep_first_quarterly($group_name, $candidate_list,
+                                          $constraints->{keep_first_quarterly});
+
+    push @keep_list, keep_first_monthly($group_name, $candidate_list,
+                                        $constraints->{keep_first_monthly});
+
+    push @keep_list, keep_first_weekly($group_name, $candidate_list,
+                                       $constraints->{keep_first_weekly},
+                                       $constraints->{week_start});
+
+    push @keep_list, keep_first_daily($group_name, $candidate_list,
+                                      $constraints->{keep_first_daily});
+
+    push @keep_list, keep_first_hourly($group_name, $candidate_list,
+                                       $constraints->{keep_first_hourly});
+
+    push @keep_list, keep_most_recent($group_name, $candidate_list,
+                                      $constraints->{keep_most_recent});
+
+    #TBD: Implement expiration_tag_name
+    die "$Prog: ERROR: Option 'expiration_tag_name' is not yet implemented"
+        if $constraints->{expiration_tag_name};
+
+    #TBD: Implement expiration_tag_optional
+    die "$Prog: ERROR: Option 'expiration_tag_optional' is not yet implemented"
+        if $constraints->{expiration_tag_optional};
+    
+    my %keep_ids = map { $_->{id} => 1 } @keep_list;
+    my $expire_list = [];
+    for my $item ( @$candidate_list ) {
+        push @$expire_list, $item->{object}
+            unless exists $keep_ids{$item->{id}};
+    }
+
+    return $expire_list;
+}
+
+sub force_delete_all {
+    my ($group_name, $candidate_list, $constraints) = @_;
+    for my $key ( keys %$constraints ) {
+        die "$Prog: ERROR: Option 'force-delete-all' not compatible with".
+                " any 'keep' options"
+            if $key =~ m%^(keep|expiration_tag)% && $constraints->{$key};
+    }
+    $Quiet or warn "$Prog: $group_name: INFO: Expiring ALL by request";
+
+    my $expired_list = [];
+    for my $item ( @$candidate_list ) {
+        push @$expired_list, $item->{object};
+    }
+    return $expired_list;
+}
+
+sub keep_all_since {
+    my ($group_name, $candidate_list, $timestamp) = @_;
+    return () unless defined $timestamp;
+
+    #TBD: Implement keep_all_since
+    die "$Prog: ERROR: Option 'keep_all_since' is not yet implemented";
+}
+
+sub keep_first_yearly {
+    my ($group_name, $candidate_list, $count_to_keep) = @_;
+    return keep_first_period($group_name, $candidate_list, $count_to_keep,
+                             'year', 'years', "%Y");
+}
+
+sub keep_first_quarterly {
+    my ($group_name, $candidate_list, $count_to_keep) = @_;
+    return () unless defined $count_to_keep;
+
+    #TBD: Implement keep_first_quarterly
+    die "$Prog: ERROR: Option 'keep_first_quarterly' is not yet implemented";
+}
+
+sub keep_first_monthly {
+    my ($group_name, $candidate_list, $count_to_keep) = @_;
+    return keep_first_period($group_name, $candidate_list, $count_to_keep,
+                             'month', 'months', "%Y-%m");
+}
+
+sub keep_first_weekly {
+    my ($group_name, $candidate_list, $count_to_keep, $week_starts) = @_;
+    return keep_first_period($group_name, $candidate_list, $count_to_keep,
+                             'week', 'weeks', "%Y-%m-%d");
+}
+
+sub keep_first_daily {
+    my ($group_name, $candidate_list, $count_to_keep) = @_;
+    return keep_first_period($group_name, $candidate_list, $count_to_keep,
+                             'day', 'days', "%Y-%m-%d");
+}
+
+sub keep_first_hourly {
+    my ($group_name, $candidate_list, $count_to_keep) = @_;
+    return keep_first_period($group_name, $candidate_list, $count_to_keep,
+                             'hour', 'hours', "%Y-%m-%d %H:00");
+}
+
+# Abstract out hour/day/week/month/quarter/year
+sub keep_first_period {
+    my ($group_name, $candidate_list, $count_to_keep,
+        $period, $periods, $human_format) = @_;
+    return () unless $count_to_keep;
+
+    my $start_time = DateTime->now(time_zone => 'UTC')->truncate(to => $period);
+    die "$Prog: ERROR: Unable to calculate current $period"
+        unless $start_time;
+    my $end_time   = undef;
+
+    my @keep_list = ();
+  PERIOD:
+    while ( $count_to_keep-- > 0 ) {
+        my $human_start_time = $start_time->strftime($human_format);
+        for my $item ( @$candidate_list ) {
+            my $lead = "$Prog: $group_name: \u$period $human_start_time";
+            if ( defined($end_time) && $item->{datetime} >= $end_time ) {
+                $Quiet or warn "$lead: No candidates to keep\n";
+                next PERIOD;
+            }
+            if ( $item->{datetime} >= $start_time ) {
+                $Debug and
+                    warn "$lead: Keeping ", $item->{id}, "\n";
+                push @keep_list, $item;
+                next PERIOD;
+            }
+        }
+    } continue {
+        $end_time = $start_time->clone;
+        $start_time->subtract($periods => 1);
+    }
+
+    return @keep_list;
+}
+
+sub keep_most_recent {
+    my ($group_name, $candidate_list, $count_to_keep) = @_;
+    $count_to_keep = 1 unless defined $count_to_keep;
+
+    my $from_index = $#$candidate_list - $count_to_keep + 1;
+    $from_index = 0 if $from_index < 0;
+    my $to_index   = $#$candidate_list;
+    return () if $from_index > $to_index;
+
+    my @keep_list = ();
+    for (my $count = 1; $count <= $count_to_keep; ++$count) {
+        my $lead = "$Prog: $group_name: Most recent $count";
+        if ( $count > scalar @$candidate_list ) {
+            $Quiet or warn "$lead: No candidates to keep\n";
+        } else {
+            my $item = $candidate_list->[scalar(@$candidate_list) - $count];
+            $Debug and warn "$lead: Keeping ", $item->{id}, "\n";
+            push @keep_list, $item;
+        }
+    }
+
+    return @keep_list;
+}
+
+# Add the DateTime to each entry for easy manipulation
+sub add_datetime {
+    my ($group_name, $candidate_list) = @_;
+
+    my $list_with_datetime = [];
+    for my $item ( @$candidate_list ) {
+        my $datetime = datetime_for_timestamp($item->{timestamp});
+        die "$Prog: $group_name: ERROR: Unable to parse timestamp for ",
+                $item->{id}, ": ", $item->{timestamp}
+            unless $datetime;
+        push @$list_with_datetime, {
+            %$item,
+            datetime => $datetime,
+        };
+    }
+
+    return $list_with_datetime;
+}
+
+# Convert ISO8601 format into a DateTime object.
+sub datetime_for_timestamp {
+    my ($timestamp) = @_;
+
+    my $dt = DateTime::Format::ISO8601->parse_datetime($timestamp);
+    $dt->set_time_zone('UTC');
+    return $dt;
+}
+
+
+=head1 NAME
+
+ec2-expire-snapshots - Delete expired EBS snapshots in Amazon EC2
+
+=head1 SYNOPSIS
+
+ ec2-expire-snapshots [opts] VOLUMEID...
+
+=head1 OPTIONS
+
+=over
+
+=item -h --help
+
+Print help and exit.
+
+=item -d --debug
+
+Debug mode.
+
+=item -q --quiet
+
+Quiet mode.
+
+=item -n --noaction
+
+Don't do it. Just say what you would have done.
+
+=item --aws-access-key-id KEY
+
+=item --aws-secret-access-key SECRET
+
+Amazon AWS access key and secret access key.  Defaults to
+environment variables or .awssecret file contents described below.
+
+=item --aws-access-key-id-file KEYFILE
+
+=item --aws-secret-access-key-file SECRETFILE
+
+Files containing Amazon AWS access key and secret access key.
+Defaults to environment variables or .awssecret file contents
+described below.
+
+=item  --aws-credentials-file CREDENTIALSFILE
+
+File containing both the Amazon AWS access key and secret access
+key on separate lines and in that order.  Defaults to contents of
+$AWS_CREDENTIALS environment variable or the value $HOME/.awssecret
+
+=item --region REGION
+
+Specify a different EC2 region like "eu-west-1".  Defaults to
+"us-east-1".
+
+=item --expiration-tag-name TAGNAME [NOT YET IMPLEMENTED]
+
+=item --expiration-tag-optional [NOT YET IMPLEMENTED]
+
+=item --keep-first-yearly YEARCOUNT
+
+=item --keep-first-quarterly QUARTERCOUNT [NOT YET IMPLEMENTED]
+
+=item --keep-first-monthly MONTHCOUNT
+
+=item --keep-first-weekly WEEKCOUNT
+
+=item --week-starts DAYOFWEEK [NOT YET IMPLEMENTED]
+
+=item --keep-first-daily DAYCOUNT
+
+=item --keep-first-hourly HOURCOUNT
+
+=item --keep-most-recent COUNT
+
+=item --keep-all-since DATETIME
+
+These options identify which EBS snapshots should be preserved.  See
+the "PRESERVATION OPTIONS" section for more details on what they mean
+and how to use them.
+
+=item --force-delete-all
+
+This dangerous option overrides all other default option values, EBS
+snapshot tag values, and normal safety measures.  All EBS snapshots
+for the specified EBS volumes are attemped to be deleted. Even the
+most recent EBS snapshot is deleted.  The EBS snapshots are deleted
+even if the EBS volume does not exist.  After this option is used, you
+will have no EBS snapshots for the specified EBS volume, unless there
+was some error condition that prevented an EBS snapshot from being
+deleted.
+
+This is not a normal EBS snapshot expiration strategy, but is a
+convenience option for use when throwing away all data associated with
+an EBS volume that is no longer useful for any purpose.
+
+=back
+
+=head1 ARGUMENTS
+
+=over
+
+=item VOLUMEID
+
+EBS volume ids for which EBS snapshots are to be expired (deleted).
+The EBS volume does not have to exist for its EBS snapshots to be
+found and deleted.
+
+=back
+
+=head1 DESCRIPTION
+
+This program deletes expired EBS snapshots of the specified EBS
+volumes on Amazon EC2.  Different expiration strategies and
+specifications are supported.
+
+When deciding what options to use, it's easier to think of which EBS
+snapshots should be *preserved* instead of which should be expired and
+deleted.
+
+As a general rule, all EBS snapshots that you have not requested to be
+preserved will be deleted.
+
+Unless overridden, the software always preserves the most recent EBS
+snapshot, along with any EBS snapshots where it isn't clear what was
+intended (e.g., unrecognized expiration tag values).
+
+Please read the descriptions of the preservation options carefully.
+They might not mean what they look like on first glance.  For example,
+these mean two very different things:
+
+=over
+
+=item --keep-all-since '3 days ago'
+
+This option asks the program to preserve *every* EBS snapshot that was
+created since the current time 3 days ago, i.e., the most recent 72
+hours.
+
+=item --keep-first-daily 3
+
+This option asks the program to preserve the first completed EBS
+snapshot that was created on each of the last 3 calendar days
+including "today", "yesterday", and "2 days ago", calculated in UTC.
+All other EBS snapshots of the EBS volume may be deleted unless there
+are other conditions specified to prevent that.
+
+=back
+
+=head2 PRESERVATION OPTIONS
+
+The following options control which EBS snapshots are preserved.  If
+an EBS snapshot is not flagged as one to be preserved, then it is
+considered expired and will be deleted.
+
+There are three basic expiration methodologies supported by this
+program.
+
+=over
+
+=item 1. Keep Recent
+
+This is the simplest approach where you tell the program to preserve a
+specifc number of the the most recent EBS snapshots created (e.g.,
+"10") and/or to preserve any EBS snapshots created since a particular
+date/time in the past (e.g., "7 days ago").
+
+The specific options related to this approach include:
+
+=over
+
+=item --keep-most-recent COUNT
+
+The most recent COUNT completed EBS snapshots will be preserved.  By
+default, the most recent EBS snapshot is always preserved, but this
+can be overridden against our recommendation by explicitly specifying
+"0" in this option.
+
+=item --keep-all-since DATETIME
+
+The EBS snapshots that were created at or after DATETIME will be
+preserved.  The value may be an absolute date/time or it may be
+relative to now.
+
+See "DATE/TIME FORMATS" below for recommended value formats.
+
+=back
+
+=item 2. Keep One Per Calendar/Clock Cycle
+
+This approach lets you keep many very recent copies of EBS snapshots,
+somewhat fewer as you go into the near-term past, and more sparse
+backups as you get to distant history.  The time frames involved are
+hourly, daily, weekly, monthly, quarterly, and yearly.  You can
+specify as many or as few of these time periods as you wish, and save
+as many cycles of each as you wish.
+
+The specific options related to this approach include:
+
+=over
+
+=item  --keep-first-hourly HOURCOUNT
+
+=item  --keep-first-daily DAYCOUNT
+
+=item  --keep-first-weekly WEEKCOUNT
+
+=item  --keep-first-monthly MONTHCOUNT [NOT YET IMPLEMENTED]
+
+=item  --keep-first-quarterly QUARTERCOUNT [NOT YET IMPLEMENTED]
+
+=item  --keep-first-yearly YEARCOUNT
+
+Preserve the first completed EBS snapshot created in each of the most
+recent COUNT hours/days/weeks/months/quarters/years, respectively,
+calculated in UTC.
+
+The current hour/day/week/month/quarter/year is considered "1".  A
+COUNT of "all", case insensitive, is equivalent to an infinitely high
+COUNT.
+
+A single EBS snasphot may match multiple options.  For example, the
+first EBS snapshot in a month is also going to be the first EBS
+snapshot for a particular day, but perhaps not the first for any
+particular week.  There may be no completed EBS snapshots in some time
+periods.
+
+The first completed EBS snapshot in a month may have been taken on a
+date later than the first day of the month and the dates don't need to
+be the same across different months.  For example, the first snapshot
+of the month may have been created on the 3rd.  This software simply
+preserves the oldest completed EBS snapshot in each relevant time
+period.
+
+If hourly EBS snapshots would be too many for you, you can simply not
+create EBS snapshots that often.  For example, you could create EBS
+snapshots every 6 hours and then specify "--keep-first-hourly 30" to
+preserve about 4, depending on what exactly the time stamps are on the
+EBS snapshots.
+
+=item --week-starts DAYOFWEEK  [NOT YET IMPLEMENTED]
+
+Specifies the first day of each week as you think of it.  This is used
+in conjunction with --keep-first-weekly to know which EBS snapshot you
+prefer to keep.  Supported values include "Sunday", "Sun", "Monday",
+"Mon", case insensitively.  The default first day of the week is Monday.
+
+=back
+
+=item 3. Ask The Snapshot
+
+This approach transfers the decision making about how long each EBS
+snapshot should be preserved onto some other process, perhaps the one
+that creates the EBS snapshots in the first place.  That external
+process must create or add a tag to each EBS snapshot indicating how
+long it should be preserved or when it should expire.
+
+This gives maximum flexibility for any system that goes beyond the
+simple rules understood by this program.  It also allows for
+exceptions to be made to these rules by humans who make decisions
+about how long a specific EBS snapshot should be preserved.
+
+The specific options related to this approach include:
+
+=over
+
+=item --expiration-tag-name TAGNAME [NOT YET IMPLEMENTED]
+
+Specifies the name of a tag to look for on each EBS snapshot
+indicating when that EBS snapshot is allowed to expire.  The tag value
+can either be an absolute date/time, or a date/time offset expression
+that is to be calculated relative to the timestamp of the EBS
+snapshot's creation. For example, Expiration: +8 days
+
+If the calculated expiration time is in the future or is unrecognized,
+then the EBS volume is preserved.  A tag value of "never" or "forever"
+will prevent an EBS snapshot from ever being expired.
+
+If this option is specified multiple times, then each tag name is
+checked on each EBS snapshot, and any one of them can trigger the
+preservation of an EBS snapshot (even if another tag indicates that
+the snapshot has expired).
+
+See "DATE/TIME FORMATS" below for recommended tag value formats.
+
+=item --expiration-tag-optional [NOT YET IMPLEMENTED]
+
+By default, if you specify one or more --expiration-tag-name options
+and an EBS snapshot does not have any of those tag names, then that
+EBS snapshot will be preserved.
+
+Including the --expiration-tag-optional option tells the program that
+EBS snapshots without the expiration tags are allowed to be expired.
+
+=back
+
+=back
+
+It is acceptable and encouraged to include options from across
+multiple of these strategies.  This program will preserve all EBS
+snapshots that match any of the conditions.
+
+For example, you may want to keep 24 hourly, 7 daily, 4 weekly, and 12
+monthly EBS snapshots as a base strategy.
+
+Then, you could add the last 3 hours of all EBS snapshots just in case
+you end up creating some EBS snapshots manually during a sensitive
+file modification procedure and you don't want your EBS snapshots
+inadvertently deleted in the event you need to undo some recent work.
+
+Then, you could add in some optional expiration tags that can be set
+to override normal expiration and preserve for a longer time period
+any special EBS snapshots that you care to flag from time to time.
+
+=head2 BACKGROUND
+
+The creation of EBS snapshots on EC2 is a risk reduction and safety
+improvement measure in a few ways:
+
+=over
+
+=item 1
+
+An EBS snapshot is a form of backup and disaster recovery
+preparedness, allowing you to restore data that may have been deleted,
+corrupted, or in any other way lost on the EBS volume due to hardware,
+system, environmental, or human error at a time after the EBS snapshot
+was created.
+
+=item 2
+
+EBS snapshots are available from multiple availability zones in a
+given EC2 region even if the availability zone for the source EBS
+volume is inaccessible.
+
+=item 3
+
+An EBS snapshot automatically and transparently reduces the rate of
+failure of the underlying EBS volume, due to the way that Amazon has
+designed and implemented the EBS system.
+
+The EBS system can automatically recover parts of a failing EBS volume
+from an EBS snapshot, if the blocks that are failing have not been
+modified since the EBS snapshot was taken.  The more frequently an EBS
+volume is snapshotted, the lower its potential rate of failure.
+
+=back
+
+With backup strategies using physical media, we normally introduce a
+backup rotation strategy because we have a limited amount of disk or
+tape to store the backups.  With EC2, the available EBS snapshot space
+is perceived as limitless at the level a single organizion could use
+it.
+
+So, why do we want to expire and delete EBS snapshots?
+
+=over
+
+=item 1
+
+EBS snapshots cost money to store on EC2.  Even though multiple EBS
+snapshots share the same copies of unchanged blocks, and even though
+the block contents are stored in a compressed format, these charges
+can add up over time when you have a lot of EBS snapshots.
+
+=item 2
+
+There is a limit on the number of EBS snapshots a single EC2 account
+can have at any point in time.  This limit can easily be increased by
+submitting a request to Amazon with an explanation of why you need
+more, but eventually you're probably going to want to trim back on how
+many EBS snapshots you retain.
+
+=item 3
+
+Depending on the tools you are using to manage your AWS resources, it
+can get unwieldy to manage large numbers of EBS snapshots.
+
+=back
+
+This program tries to help manage your EBS snapshot storage costs by
+deleting EBS snapshots that you believe are the least helpful to your
+backup needs, while preserving a select set of EBS snapshots that you
+believe are likely to be the most important in the near and distant
+future.
+
+Just remember: When you (or this software) delete an EBS snapshot, it
+is gone forever and is completely irrecoverable!
+
+=head2 SAFETY
+
+This software attempts to be somewhat conservative and to protect you
+in a few ways:
+
+=over
+
+=item 1
+
+This program will exit with error unless you specify at least one of
+the preservation options to give this program an indication of what
+your expiration strategy is and what EBS snapshots should be
+preserved.
+
+=item 2
+
+If you use the --expiration-tag-name option and this program cannot
+make sense of the value for that tag on one of the EBS snapshots, then
+that EBS snapshot is not deleted.
+
+=item 3
+
+If you specify --expiration-tag-name and --expiration-tag-optional
+without any of the --keep options, and the tag name(s) are not found
+on any EBS snapshots, then the program exits with an error instead of
+deleting all your EBS snapshots.
+
+=item 4
+
+The most recent EBS snapshot for an EBS volume is always preserved
+unless you explicitly request it to be deleted with:
+
+ --keep-most-recent 0
+
+Deleting the most recent EBS snapshot reduces the reliability of the
+EBS volume and increases the time, IO, and cost required to create a
+new EBS snapshot in the future.
+
+=item 5
+
+If any of the options indicate to this program that an EBS snapshot
+should be preserved, then it will not be deleted.  For example, even
+if there is an expiration tag on an EBS snapshot that indicates it should
+expire yesterday, it will not be deleted if it is also the first
+EBS snapshot of this month and you specified --keep-first-monthly greater
+than zero.
+
+=item 6
+
+EBS snapshots in the "pending" or other non-"completed" states are
+completely ignored by this program.  For example, only "completed"
+snapshots are counted when deciding what is the first snapshot of a
+calendar period to preserve.
+
+We have no guarantee that a "pending" snapshot will ever complete
+successfully, but if it does complete before the next time you run
+this program, then it will be taken into account in the calculations
+and may become the new "first" EBS snapshot to be preserved for a time
+period.
+
+=back
+
+=head2 DATE/TIME FORMATS
+
+This software supports and interprets a number of different date
+formats, but if you have a choice, here are some samples of
+recommended formats for absolute dates and times:
+
+ "2011-12-31"
+ "2012-01-15 14:56"
+ "2015-07-22 09:23:45"
+
+Dates specified without times are assumed to be at "00:00:00"
+(midnight starting that date).
+
+This software assumes that dates and times without time zones are in
+UTC.
+
+Here are some samples of recommended formats for relative time
+offsets for "expires in" tags on EBS snapshots:
+
+ "+1 year"
+ "+10 weeks"
+ "+3 days"
+ "+12 hours"
+
+Here are some examples of recommended formats for relative time
+offsets for the --keep-all-since option:
+
+ "1 year ago"
+ "10 weeks ago"
+ "1 day ago"
+ "12 hours ago"
+
+=head1 EXAMPLES
+
+This simple example saves the most recent 10 snapshots:
+
+    ec2-expire-snapshots                   \
+        --keep-most-recent 10              \
+        vol-11111111
+
+This example saves the last 7 days of snapshots:
+
+    ec2-expire-snapshots                   \
+        --keep-all-since "7 days ago"     \
+        vol-22222222
+
+This example keeps one snapshot per day for the last 7 days, and one
+snapshot per month for the last 12 months.  There is also an implicit
+saving of the most recent snapshot by default:
+
+    ec2-expire-snapshots                   \
+        --keep-first-daily 7               \
+        --keep-first-monthly 12            \
+        vol-33333333
+
+If you always determine how long a snapshot should be saved when you
+take the EBS snapshot and you store this value in a specific tag named
+"Expiration", then you may leave out all other "keep" options only pay
+attention to your tag.  Any volume without the tag will be preserved
+forever in this example.
+
+    ec2-expire-snapshots                   \
+        --expiration-tag-name "Expiration" \
+        vol-44444444
+
+This example combines a number of preservation strategies, any one of
+which could trigger the preservation of a given EBS snapshot:
+
+    ec2-expire-snapshots                   \
+        --keep-most-recent 1               \
+        --keep-all-since "2 hours ago"     \
+        --keep-first-hourly 24             \
+        --keep-first-daily 7               \
+        --keep-first-weekly 4              \
+        --keep-first-monthly 12            \
+        --keep-first-yearly all            \
+        --expiration-tag-optional          \
+        --expiration-tag-name "Expiration" \
+        --expiration-tag-name "Expires"    \
+        --expiration-tag-name "Keep-For"   \
+        --expiration-tag-name "Keep-Until" \
+        vol-55555555                       \
+        vol-66666666                       \
+        vol-77777777
+
+Delete all EBS snapshots associated with an EBS volume, no matter when
+they were taken or what their tags say.  Make sure you really want to
+do this.  There is no way to recover.
+
+    ec2-expire-snapshots   \
+        --force-delete-all \
+        vol-88888888
+
+=head1 ENVIRONMENT
+
+=over
+
+=item $AWS_ACCESS_KEY_ID
+
+Default value for access key.
+Can be overridden by command line options.
+
+=item $AWS_SECRET_ACCESS_KEY
+
+Default value for secret access key.  Can be overridden by command
+line options.
+
+=item $AWS_CREDENTIALS
+
+Default value for filename containing both access key and secret
+access key on separate lines and in that order. Can be overriden by
+the --aws-credentials command line option.
+
+=back
+
+=head1 FILES
+
+=over
+
+=item $HOME/.my.cnf
+
+Default values for MySQL user and password are sought here in the
+standard format.
+
+=item $HOME/.awssecret
+
+Default values for access key and secret access keys are sought here.
+Can be overridden by environment variables and command line options.
+
+=back
+
+=head1 INSTALLATION
+
+[THIS WILL NOT WORK UNTIL THIS SOFTWARE HAS BEEN RELEASED!]
+
+The ec2-expire-snapshots program is part of the
+B<ec2-expire-snapshots> package.
+
+On most Ubuntu releases, the B<ec2-expire-snapshots> package can be
+installed directly from the Alestic.com PPA using the following
+commands:
+
+ sudo add-apt-repository ppa:alestic
+ sudo apt-get update
+ sudo apt-get install ec2-expire-snapshots
+
+This program may also require the installation of the Net::Amazon::EC2
+Perl package from CPAN.  On Ubuntu 10.04 Lucid and higher, this should
+happen automatically by the dependency on the libnet-amazon-ec2-perl
+package.
+
+On some earlier releases of Ubuntu you can install the required
+package with the following command:
+
+ sudo PERL_MM_USE_DEFAULT=1 cpan Net::Amazon::EC2
+
+On Ubuntu 8.04 Hardy, use the following commands instead:
+
+ code=$(lsb_release -cs)
+ echo "deb http://ppa.launchpad.net/alestic/ppa/ubuntu $code main"|
+   sudo tee /etc/apt/sources.list.d/alestic-ppa.list
+ sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys BE09C571
+ sudo apt-get update
+ sudo apt-get install ec2-expire-snapshots build-essential
+ sudo cpan Net::Amazon::EC2
+
+The default values can be accepted for most of the prompts, though it
+is necessary to select a CPAN mirror on Hardy.
+
+=head1 SEE ALSO
+
+=over
+
+=item Amazon EC2
+
+=item  Amazon EC2 EBS (Elastic Block Store)
+
+=item  ec2-consistent-snapshot
+
+=back
+
+=head1 CAVEATS
+
+EBS snapshots reduce risk.  This program deletes EBS snapshots.
+Therefore, the use of this program increases risk.
+
+This program has NOT been tested in all possible environments with all
+possible combinations of options, settings, EBS volume dates, AWS/EC2
+API responses, operating systems, Perl versions, CPAN package
+versions, AWS accounts, AWS credential settings, etc.
+
+This documentation may not accurately convey to you how this program
+really works.  This documentation may not be up to date with how the
+program really works.
+
+This program may contains defects that could cause it to delete one or
+more EBS snapshot that you did not intend to be deleted.
+
+It is possible that this program could leave undeleted some EBS
+snapshots that you intended to be deleted, causing you to spend more
+than you want in AWS/EC2 fees.
+
+Please test your command line options, EBS snapshot tags, environment,
+configuration files and other parameters carefully.  Examine closely
+what EBS snapshots are being deleted and not deleted by this program
+to make sure it's what you want.
+
+You are responsible for what happens in your EC2 account.  This
+software is intended, but not guaranteed, to help in that effort.
+
+This program tries hard to figure out some values are for the AWS key
+and AWS secret access key.  In fact, it tries too hard.  This results
+in possibly using some credentials it finds that are not the correct
+ones you wish to use, especially if you are operating in an
+environment where multiple sets of credentials are in use.
+
+=head1 BUGS
+
+Please report bugs at https://github.com/alestic/ec2-expire-snapshots/issues
+
+=head1 CREDITS
+
+Thanks to the following for performing tests on early versions,
+providing feedback, and patches:
+
+  Christian Marquardt
+
+=head1 AUTHOR
+
+Eric Hammond <ehammond@thinksome.com>
+
+=head1 LICENSE
+
+Copyright 2009-2012 Eric Hammond <ehammond@thinksome.com>
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+=cut

@@ -1,0 +1,2 @@
+ec2-expire-snapshots usr/bin
+ec2-expire-snapshots.1 usr/share/man/man1
