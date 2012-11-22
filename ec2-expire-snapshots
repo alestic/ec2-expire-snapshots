@@ -10,6 +10,7 @@ use Pod::Usage;
 use Date::Manip;
 use DateTime;
 use DateTime::Format::ISO8601;
+use File::Slurp;
 use Net::Amazon::EC2;
 
 #---- OPTIONS ----
