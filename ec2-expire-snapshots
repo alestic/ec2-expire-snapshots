@@ -487,75 +487,75 @@ ec2-expire-snapshots - Delete expired EBS snapshots in Amazon EC2
 
 =over
 
-=item -h --help
+=item C<-h> C<--help>
 
 Print help and exit.
 
-=item -d --debug
+=item C<-d> C<--debug>
 
 Debug mode.
 
-=item -q --quiet
+=item C<-q> C<--quiet>
 
 Quiet mode.
 
-=item -n --noaction
+=item C<-n> C<--noaction>
 
 Don't do it. Just say what you would have done.
 
-=item --aws-access-key-id KEY
+=item C<--aws-access-key-id KEY>
 
-=item --aws-secret-access-key SECRET
+=item C<--aws-secret-access-key SECRET>
 
 Amazon AWS access key and secret access key.  Defaults to
 environment variables or .awssecret file contents described below.
 
-=item --aws-access-key-id-file KEYFILE
+=item C<--aws-access-key-id-file KEYFILE>
 
-=item --aws-secret-access-key-file SECRETFILE
+=item C<--aws-secret-access-key-file SECRETFILE>
 
 Files containing Amazon AWS access key and secret access key.
 Defaults to environment variables or .awssecret file contents
 described below.
 
-=item  --aws-credentials-file CREDENTIALSFILE
+=item  C<--aws-credentials-file CREDENTIALSFILE>
 
 File containing both the Amazon AWS access key and secret access
 key on separate lines and in that order.  Defaults to contents of
 $AWS_CREDENTIALS environment variable or the value $HOME/.awssecret
 
-=item --region REGION
+=item C<--region REGION>
 
 Specify a different EC2 region like "eu-west-1".  Defaults to
 "us-east-1".
 
-=item --expiration-tag-name TAGNAME [NOT YET IMPLEMENTED]
+=item C<--keep-most-recent COUNT>
 
-=item --expiration-tag-optional [NOT YET IMPLEMENTED]
+=item C<--keep-all-since DATETIME>
 
-=item --keep-first-yearly YEARCOUNT
+=item C<--keep-first-yearly YEARCOUNT>
 
-=item --keep-first-quarterly QUARTERCOUNT [NOT YET IMPLEMENTED]
+=item C<--keep-first-quarterly QUARTERCOUNT> [NOT YET IMPLEMENTED]
 
-=item --keep-first-monthly MONTHCOUNT
+=item C<--keep-first-monthly MONTHCOUNT>
 
-=item --keep-first-weekly WEEKCOUNT
+=item C<--keep-first-weekly WEEKCOUNT>
 
-=item --week-starts DAYOFWEEK [NOT YET IMPLEMENTED]
+=item C<--week-starts DAYOFWEEK> [NOT YET IMPLEMENTED]
 
-=item --keep-first-daily DAYCOUNT
+=item C<--keep-first-daily DAYCOUNT>
 
-=item --keep-first-hourly HOURCOUNT
+=item C<--keep-first-hourly HOURCOUNT>
 
-=item --keep-most-recent COUNT
+=item C<--expiration-tag-name TAGNAME> [NOT YET IMPLEMENTED]
 
-=item --keep-all-since DATETIME
+=item C<--expiration-tag-optional> [NOT YET IMPLEMENTED]
 
 These options identify which EBS snapshots should be preserved.  See
 the "PRESERVATION OPTIONS" section for more details on what they mean
 and how to use them.
 
-=item --force-delete-all
+=item C<--force-delete-all>
 
 This dangerous option overrides all other default option values, EBS
 snapshot tag values, and normal safety measures.  All EBS snapshots
@@ -584,6 +584,15 @@ found and deleted.
 
 =back
 
+=head1 INSTALLATION
+
+On Ubuntu, the B<ec2-expire-snapshots> package can be installed
+directly from the Alestic.com PPA using the following commands:
+
+ sudo add-apt-repository -y ppa:alestic
+ sudo apt-get update
+ sudo apt-get install -y ec2-expire-snapshots
+
 =head1 DESCRIPTION
 
 This program deletes expired EBS snapshots of the specified EBS
@@ -607,13 +616,13 @@ these mean two very different things:
 
 =over
 
-=item --keep-all-since '3 days ago'
+=item C<--keep-all-since '3 days ago'>
 
 This option asks the program to preserve *every* EBS snapshot that was
 created since the current time 3 days ago, i.e., the most recent 72
 hours.
 
-=item --keep-first-daily 3
+=item C<--keep-first-daily 3>
 
 This option asks the program to preserve the first completed EBS
 snapshot that was created on each of the last 3 calendar days
@@ -645,14 +654,14 @@ The specific options related to this approach include:
 
 =over
 
-=item --keep-most-recent COUNT
+=item C<--keep-most-recent COUNT>
 
 The most recent COUNT completed EBS snapshots will be preserved.  By
 default, the most recent EBS snapshot is always preserved, but this
 can be overridden against our recommendation by explicitly specifying
 "0" in this option.
 
-=item --keep-all-since DATETIME
+=item C<--keep-all-since DATETIME>
 
 The EBS snapshots that were created at or after DATETIME will be
 preserved.  The value may be an absolute date/time or it may be
@@ -675,17 +684,17 @@ The specific options related to this approach include:
 
 =over
 
-=item  --keep-first-hourly HOURCOUNT
+=item  C<--keep-first-hourly HOURCOUNT>
 
-=item  --keep-first-daily DAYCOUNT
+=item  C<--keep-first-daily DAYCOUNT>
 
-=item  --keep-first-weekly WEEKCOUNT
+=item  C<--keep-first-weekly WEEKCOUNT>
 
-=item  --keep-first-monthly MONTHCOUNT [NOT YET IMPLEMENTED]
+=item  C<--keep-first-monthly MONTHCOUNT> [NOT YET IMPLEMENTED]
 
-=item  --keep-first-quarterly QUARTERCOUNT [NOT YET IMPLEMENTED]
+=item  C<--keep-first-quarterly QUARTERCOUNT> [NOT YET IMPLEMENTED]
 
-=item  --keep-first-yearly YEARCOUNT
+=item  C<--keep-first-yearly YEARCOUNT>
 
 Preserve the first completed EBS snapshot created in each of the most
 recent COUNT hours/days/weeks/months/quarters/years, respectively,
@@ -710,14 +719,14 @@ period.
 
 If hourly EBS snapshots would be too many for you, you can simply not
 create EBS snapshots that often.  For example, you could create EBS
-snapshots every 6 hours and then specify "--keep-first-hourly 30" to
+snapshots every 6 hours and then specify C<--keep-first-hourly 30> to
 preserve about 4, depending on what exactly the time stamps are on the
 EBS snapshots.
 
-=item --week-starts DAYOFWEEK  [NOT YET IMPLEMENTED]
+=item C<--week-starts DAYOFWEEK> [NOT YET IMPLEMENTED]
 
 Specifies the first day of each week as you think of it.  This is used
-in conjunction with --keep-first-weekly to know which EBS snapshot you
+in conjunction with C<--keep-first-weekly> to know which EBS snapshot you
 prefer to keep.  Supported values include "Sunday", "Sun", "Monday",
 "Mon", case insensitively.  The default first day of the week is Monday.
 
@@ -740,7 +749,7 @@ The specific options related to this approach include:
 
 =over
 
-=item --expiration-tag-name TAGNAME [NOT YET IMPLEMENTED]
+=item C<--expiration-tag-name TAGNAME> [NOT YET IMPLEMENTED]
 
 Specifies the name of a tag to look for on each EBS snapshot
 indicating when that EBS snapshot is allowed to expire.  The tag value
@@ -759,13 +768,13 @@ the snapshot has expired).
 
 See "DATE/TIME FORMATS" below for recommended tag value formats.
 
-=item --expiration-tag-optional [NOT YET IMPLEMENTED]
+=item C<--expiration-tag-optional> [NOT YET IMPLEMENTED]
 
-By default, if you specify one or more --expiration-tag-name options
+By default, if you specify one or more C<--expiration-tag-name> options
 and an EBS snapshot does not have any of those tag names, then that
 EBS snapshot will be preserved.
 
-Including the --expiration-tag-optional option tells the program that
+Including the C<--expiration-tag-optional> option tells the program that
 EBS snapshots without the expiration tags are allowed to be expired.
 
 =back
@@ -879,14 +888,14 @@ preserved.
 
 =item 2
 
-If you use the --expiration-tag-name option and this program cannot
+If you use the C<--expiration-tag-name> option and this program cannot
 make sense of the value for that tag on one of the EBS snapshots, then
 that EBS snapshot is not deleted.
 
 =item 3
 
-If you specify --expiration-tag-name and --expiration-tag-optional
-without any of the --keep options, and the tag name(s) are not found
+If you specify C<--expiration-tag-name> and C<--expiration-tag-optional>
+without any of the C<--keep> options, and the tag name(s) are not found
 on any EBS snapshots, then the program exits with an error instead of
 deleting all your EBS snapshots.
 
@@ -907,7 +916,7 @@ If any of the options indicate to this program that an EBS snapshot
 should be preserved, then it will not be deleted.  For example, even
 if there is an expiration tag on an EBS snapshot that indicates it should
 expire yesterday, it will not be deleted if it is also the first
-EBS snapshot of this month and you specified --keep-first-monthly greater
+EBS snapshot of this month and you specified C<--keep-first-monthly> greater
 than zero.
 
 =item 6
@@ -950,7 +959,7 @@ offsets for "expires in" tags on EBS snapshots:
  "+12 hours"
 
 Here are some examples of recommended formats for relative time
-offsets for the --keep-all-since option:
+offsets for the C<--keep-all-since> option:
 
  "1 year ago"
  "10 weeks ago"
@@ -961,24 +970,24 @@ offsets for the --keep-all-since option:
 
 This simple example saves the most recent 10 snapshots:
 
-    ec2-expire-snapshots                   \
-        --keep-most-recent 10              \
-        vol-11111111
+ ec2-expire-snapshots                   \
+     --keep-most-recent 10              \
+     vol-11111111
 
 This example saves the last 7 days of snapshots:
 
-    ec2-expire-snapshots                   \
-        --keep-all-since "7 days ago"     \
-        vol-22222222
+ ec2-expire-snapshots                   \
+     --keep-all-since "7 days ago"     \
+     vol-22222222
 
 This example keeps one snapshot per day for the last 7 days, and one
 snapshot per month for the last 12 months.  There is also an implicit
 saving of the most recent snapshot by default:
 
-    ec2-expire-snapshots                   \
-        --keep-first-daily 7               \
-        --keep-first-monthly 12            \
-        vol-33333333
+ ec2-expire-snapshots                   \
+     --keep-first-daily 7               \
+     --keep-first-monthly 12            \
+     vol-33333333
 
 If you always determine how long a snapshot should be saved when you
 take the EBS snapshot and you store this value in a specific tag named
@@ -986,37 +995,37 @@ take the EBS snapshot and you store this value in a specific tag named
 attention to your tag.  Any volume without the tag will be preserved
 forever in this example.
 
-    ec2-expire-snapshots                   \
-        --expiration-tag-name "Expiration" \
-        vol-44444444
+ ec2-expire-snapshots                   \
+     --expiration-tag-name "Expiration" \
+     vol-44444444
 
 This example combines a number of preservation strategies, any one of
 which could trigger the preservation of a given EBS snapshot:
 
-    ec2-expire-snapshots                   \
-        --keep-most-recent 1               \
-        --keep-all-since "2 hours ago"     \
-        --keep-first-hourly 24             \
-        --keep-first-daily 7               \
-        --keep-first-weekly 4              \
-        --keep-first-monthly 12            \
-        --keep-first-yearly all            \
-        --expiration-tag-optional          \
-        --expiration-tag-name "Expiration" \
-        --expiration-tag-name "Expires"    \
-        --expiration-tag-name "Keep-For"   \
-        --expiration-tag-name "Keep-Until" \
-        vol-55555555                       \
-        vol-66666666                       \
-        vol-77777777
+ ec2-expire-snapshots                   \
+     --keep-most-recent 1               \
+     --keep-all-since "2 hours ago"     \
+     --keep-first-hourly 24             \
+     --keep-first-daily 7               \
+     --keep-first-weekly 4              \
+     --keep-first-monthly 12            \
+     --keep-first-yearly all            \
+     --expiration-tag-optional          \
+     --expiration-tag-name "Expiration" \
+     --expiration-tag-name "Expires"    \
+     --expiration-tag-name "Keep-For"   \
+     --expiration-tag-name "Keep-Until" \
+     vol-55555555                       \
+     vol-66666666                       \
+     vol-77777777
 
 Delete all EBS snapshots associated with an EBS volume, no matter when
 they were taken or what their tags say.  Make sure you really want to
 do this.  There is no way to recover.
 
-    ec2-expire-snapshots   \
-        --force-delete-all \
-        vol-88888888
+ ec2-expire-snapshots   \
+     --force-delete-all \
+     vol-88888888
 
 =head1 ENVIRONMENT
 
@@ -1036,7 +1045,7 @@ line options.
 
 Default value for filename containing both access key and secret
 access key on separate lines and in that order. Can be overriden by
-the --aws-credentials command line option.
+the C<--aws-credentials> command line option.
 
 =back
 
@@ -1055,44 +1064,6 @@ Default values for access key and secret access keys are sought here.
 Can be overridden by environment variables and command line options.
 
 =back
-
-=head1 INSTALLATION
-
-[THIS WILL NOT WORK UNTIL THIS SOFTWARE HAS BEEN RELEASED!]
-
-The ec2-expire-snapshots program is part of the
-B<ec2-expire-snapshots> package.
-
-On most Ubuntu releases, the B<ec2-expire-snapshots> package can be
-installed directly from the Alestic.com PPA using the following
-commands:
-
- sudo add-apt-repository ppa:alestic
- sudo apt-get update
- sudo apt-get install ec2-expire-snapshots
-
-This program may also require the installation of the Net::Amazon::EC2
-Perl package from CPAN.  On Ubuntu 10.04 Lucid and higher, this should
-happen automatically by the dependency on the libnet-amazon-ec2-perl
-package.
-
-On some earlier releases of Ubuntu you can install the required
-package with the following command:
-
- sudo PERL_MM_USE_DEFAULT=1 cpan Net::Amazon::EC2
-
-On Ubuntu 8.04 Hardy, use the following commands instead:
-
- code=$(lsb_release -cs)
- echo "deb http://ppa.launchpad.net/alestic/ppa/ubuntu $code main"|
-   sudo tee /etc/apt/sources.list.d/alestic-ppa.list
- sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys BE09C571
- sudo apt-get update
- sudo apt-get install ec2-expire-snapshots build-essential
- sudo cpan Net::Amazon::EC2
-
-The default values can be accepted for most of the prompts, though it
-is necessary to select a CPAN mirror on Hardy.
 
 =head1 SEE ALSO
 

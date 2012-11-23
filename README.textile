@@ -18,13 +18,23 @@ h1. OPTIONS
 - @--aws-access-key-id-file KEYFILE@ := - @--aws-secret-access-key-file SECRETFILE@ := Files containing Amazon AWS access key and secret access key. Defaults to environment variables or .awssecret file contents described below.
 - @--aws-credentials-file CREDENTIALSFILE@ := File containing both the Amazon AWS access key and secret access key on separate lines and in that order. Defaults to contents of $AWS_CREDENTIALS environment variable or the value $HOME/.awssecret
 - @--region REGION@ := Specify a different EC2 region like "eu-west-1". Defaults to "us-east-1".
-- @--expiration-tag-name TAGNAME@ [NOT YET IMPLEMENTED] := - @--expiration-tag-optional@ [NOT YET IMPLEMENTED] := - @--keep-first-yearly YEARCOUNT@ := - @--keep-first-quarterly QUARTERCOUNT@ [NOT YET IMPLEMENTED] := - @--keep-first-monthly MONTHCOUNT@ := - @--keep-first-weekly WEEKCOUNT@ := - @--week-starts DAYOFWEEK@ [NOT YET IMPLEMENTED] := - @--keep-first-daily DAYCOUNT@ := - @--keep-first-hourly HOURCOUNT@ := - @--keep-most-recent COUNT@ := - @--keep-all-since DATETIME@ := These options identify which EBS snapshots should be preserved. See the "PRESERVATION OPTIONS" section for more details on what they mean and how to use them.
+- @--keep-most-recent COUNT@ := - @--keep-all-since DATETIME@ := - @--keep-first-yearly YEARCOUNT@ := - @--keep-first-quarterly QUARTERCOUNT@ [NOT YET IMPLEMENTED] := - @--keep-first-monthly MONTHCOUNT@ := - @--keep-first-weekly WEEKCOUNT@ := - @--week-starts DAYOFWEEK@ [NOT YET IMPLEMENTED] := - @--keep-first-daily DAYCOUNT@ := - @--keep-first-hourly HOURCOUNT@ := - @--expiration-tag-name TAGNAME@ [NOT YET IMPLEMENTED] := - @--expiration-tag-optional@ [NOT YET IMPLEMENTED] := These options identify which EBS snapshots should be preserved. See the "PRESERVATION OPTIONS" section for more details on what they mean and how to use them.
 - @--force-delete-all@ := This dangerous option overrides all other default option values, EBS snapshot tag values, and normal safety measures. All EBS snapshots for the specified EBS volumes are attemped to be deleted. Even the most recent EBS snapshot is deleted. The EBS snapshots are deleted even if the EBS volume does not exist. After this option is used, you will have no EBS snapshots for the specified EBS volume, unless there was some error condition that prevented an EBS snapshot from being deleted.
 This is not a normal EBS snapshot expiration strategy, but is a convenience option for use when throwing away all data associated with an EBS volume that is no longer useful for any purpose.
 
 h1. ARGUMENTS
 
 - VOLUMEID := EBS volume ids for which EBS snapshots are to be expired (deleted). The EBS volume does not have to exist for its EBS snapshots to be found and deleted.
+
+h1. INSTALLATION
+
+On Ubuntu, the *ec2-expire-snapshots* package can be installed directly from the Alestic.com PPA using the following commands:
+
+<pre>
+ sudo add-apt-repository -y ppa:alestic
+ sudo apt-get update
+ sudo apt-get install -y ec2-expire-snapshots
+</pre>
 
 h1. DESCRIPTION
 
@@ -225,42 +235,6 @@ h1. FILES
 
 - $HOME/.my.cnf := Default values for MySQL user and password are sought here in the standard format.
 - $HOME/.awssecret := Default values for access key and secret access keys are sought here. Can be overridden by environment variables and command line options.
-
-h1. INSTALLATION
-
-[THIS WILL NOT WORK UNTIL THIS SOFTWARE HAS BEEN RELEASED!]
-
-The ec2-expire-snapshots program is part of the *ec2-expire-snapshots* package.
-
-On most Ubuntu releases, the *ec2-expire-snapshots* package can be installed directly from the Alestic.com PPA using the following commands:
-
-<pre>
- sudo add-apt-repository ppa:alestic
- sudo apt-get update
- sudo apt-get install ec2-expire-snapshots
-</pre>
-
-This program may also require the installation of the Net::Amazon::EC2 Perl package from CPAN. On Ubuntu 10.04 Lucid and higher, this should happen automatically by the dependency on the libnet-amazon-ec2-perl package.
-
-On some earlier releases of Ubuntu you can install the required package with the following command:
-
-<pre>
- sudo PERL_MM_USE_DEFAULT=1 cpan Net::Amazon::EC2
-</pre>
-
-On Ubuntu 8.04 Hardy, use the following commands instead:
-
-<pre>
- code=$(lsb_release -cs)
- echo "deb http://ppa.launchpad.net/alestic/ppa/ubuntu $code main"|
-   sudo tee /etc/apt/sources.list.d/alestic-ppa.list
- sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys BE09C571
- sudo apt-get update
- sudo apt-get install ec2-expire-snapshots build-essential
- sudo cpan Net::Amazon::EC2
-</pre>
-
-The default values can be accepted for most of the prompts, though it is necessary to select a CPAN mirror on Hardy.
 
 h1. SEE ALSO
 
