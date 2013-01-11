@@ -169,9 +169,14 @@ sub read_awssecret {
 sub snapshots_for_volumes {
     my ($ec2) = @_;
 
-    my $snapshots = $ec2->describe_snapshots();
-    die "$Prog: ERROR: Unable to get list of snapshots from EC2"
-        unless defined $snapshots;
+    $Debug and warn "$Prog: Retrieving snapshot list\n";
+    my $snapshots;
+    eval {
+        $snapshots = $ec2->describe_snapshots();
+    };
+    if ( $@  ){
+        die "$Prog: ERROR: describe_snapshots: ", ec2_error_message($@);
+    }
 
     my $snapshots_for_volumes = {};
     for my $snapshot ( @$snapshots ) {
@@ -210,8 +215,14 @@ sub expire_snapshots_for_volume {
         $Quiet or warn "$Prog: $volume_id: Deleting snapshot: $snapshot_id (",
             $snapshot->start_time, ")\n";
         if ( !$Noaction ) {
-            $ec2->delete_snapshot(SnapshotId => $snapshot_id) 
-                or die "$Prog: ERROR deleting snapshot: $snapshot_id\n";
+            eval {
+                $ec2->delete_snapshot(SnapshotId => $snapshot_id)
+                    or die "$Prog: ERROR deleting snapshot: $snapshot_id\n";
+            };
+            if ( $@  ){
+                die "$Prog: ERROR: delete_snapshot $snapshot_id: ",
+                    ec2_error_message($@);
+            }
         }
     }
 }
@@ -444,6 +455,17 @@ sub keep_most_recent {
     }
 
     return @keep_list;
+}
+
+# Support error formats from different versions of Net::Amazon::EC2
+sub ec2_error_message {
+    my ($error) = @_;
+
+    if ( ref $error && ref $error->errors eq 'ARRAY' ) {
+        $error = join("\n", map {$_->code.': '.$_->message} @{$error->errors});
+    }
+
+    return $error;
 }
 
 # Add the DateTime to each entry for easy manipulation
