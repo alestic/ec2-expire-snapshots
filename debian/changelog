@@ -1,3 +1,9 @@
+ec2-expire-snapshots (0.05) quantal; urgency=low
+
+  * Support "all" value for various options like -keep-first-yearly
+
+ -- Eric Hammond <ehammond@thinksome.com>  Tue, 15 Jan 2013 16:32:48 -0800
+
 ec2-expire-snapshots (0.04) quantal; urgency=low
 
   * Require some option values to be numeric

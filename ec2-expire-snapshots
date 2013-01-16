@@ -57,11 +57,11 @@ GetOptions(
   'ec2-endpoint=s'               => \$ec2_endpoint,
 
   'force-delete-all'             => \$force_delete_all,
-  'keep-first-yearly=i'          => \$keep_first_yearly,
-  'keep-first-monthly=i'         => \$keep_first_monthly,
-  'keep-first-weekly=i'          => \$keep_first_weekly,
-  'keep-first-daily=i'           => \$keep_first_daily,
-  'keep-first-hourly=i'          => \$keep_first_hourly,
+  'keep-first-yearly=s'          => \$keep_first_yearly,
+  'keep-first-monthly=s'         => \$keep_first_monthly,
+  'keep-first-weekly=s'          => \$keep_first_weekly,
+  'keep-first-daily=s'           => \$keep_first_daily,
+  'keep-first-hourly=s'          => \$keep_first_hourly,
   'keep-most-recent=i'           => \$keep_most_recent,
   'keep-all-since=s'             => \$keep_all_since,
   'expiration-tag-name=s'        => \$expiration_tag_name,
@@ -401,6 +401,10 @@ sub keep_first_period {
         $period, $periods, $human_format) = @_;
     return () unless $count_to_keep;
 
+    my $keep_all = ($count_to_keep =~ m%^all$%i) ? 1 : 0;
+    die "$Prog: ERROR: $periods value must be numeric or 'all'"
+        unless $keep_all || $count_to_keep =~ m%^\d+$%;
+
     my $start_time = DateTime->now(time_zone => 'UTC')->truncate(to => $period);
     die "$Prog: ERROR: Unable to calculate current $period"
         unless $start_time;
@@ -408,7 +412,10 @@ sub keep_first_period {
 
     my @keep_list = ();
   PERIOD:
-    while ( $count_to_keep-- > 0 ) {
+    while ( $keep_all || $count_to_keep-- > 0 ) {
+        last PERIOD
+            if $keep_all && $end_time &&
+               $end_time < $candidate_list->[0]->{datetime};
         my $human_start_time = $start_time->strftime($human_format);
         for my $item ( @$candidate_list ) {
             my $lead = "$Prog: $group_name: \u$period $human_start_time";
@@ -710,7 +717,7 @@ The specific options related to this approach include:
 
 =item  C<--keep-first-weekly WEEKCOUNT>
 
-=item  C<--keep-first-monthly MONTHCOUNT> [NOT YET IMPLEMENTED]
+=item  C<--keep-first-monthly MONTHCOUNT>
 
 =item  C<--keep-first-quarterly QUARTERCOUNT> [NOT YET IMPLEMENTED]
 
@@ -718,7 +725,8 @@ The specific options related to this approach include:
 
 Preserve the first completed EBS snapshot created in each of the most
 recent COUNT hours/days/weeks/months/quarters/years, respectively,
-calculated in UTC.
+calculated in UTC.  The value "all" can be used instead of a number if
+you wish to keep the first snapshot available in any available period.
 
 The current hour/day/week/month/quarter/year is considered "1".  A
 COUNT of "all", case insensitive, is equivalent to an infinitely high
