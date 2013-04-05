@@ -558,7 +558,7 @@ Specify a different EC2 region like "eu-west-1".  Defaults to
 
 =item C<--keep-most-recent COUNT>
 
-=item C<--keep-all-since DATETIME>
+=item C<--keep-all-since DATETIME> [NOT YET IMPLEMENTED]
 
 =item C<--keep-first-yearly YEARCOUNT>
 
@@ -643,7 +643,7 @@ these mean two very different things:
 
 =over
 
-=item C<--keep-all-since '3 days ago'>
+=item C<--keep-all-since '3 days ago'> [NOT YET IMPLEMENTED]
 
 This option asks the program to preserve *every* EBS snapshot that was
 created since the current time 3 days ago, i.e., the most recent 72
@@ -688,7 +688,7 @@ default, the most recent EBS snapshot is always preserved, but this
 can be overridden against our recommendation by explicitly specifying
 "0" in this option.
 
-=item C<--keep-all-since DATETIME>
+=item C<--keep-all-since DATETIME> [NOT YET IMPLEMENTED]
 
 The EBS snapshots that were created at or after DATETIME will be
 preserved.  The value may be an absolute date/time or it may be
@@ -987,7 +987,7 @@ offsets for "expires in" tags on EBS snapshots:
  "+12 hours"
 
 Here are some examples of recommended formats for relative time
-offsets for the C<--keep-all-since> option:
+offsets for the C<--keep-all-since> option: [NOT YET IMPLEMENTED]
 
  "1 year ago"
  "10 weeks ago"
@@ -1003,6 +1003,7 @@ This simple example saves the most recent 10 snapshots:
      vol-11111111
 
 This example saves the last 7 days of snapshots:
+[NOT YET IMPLEMENTED]
 
  ec2-expire-snapshots                   \
      --keep-all-since "7 days ago"     \
@@ -1032,7 +1033,6 @@ which could trigger the preservation of a given EBS snapshot:
 
  ec2-expire-snapshots                   \
      --keep-most-recent 1               \
-     --keep-all-since "2 hours ago"     \
      --keep-first-hourly 24             \
      --keep-first-daily 7               \
      --keep-first-weekly 4              \

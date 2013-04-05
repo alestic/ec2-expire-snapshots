@@ -1,3 +1,10 @@
+ec2-expire-snapshots (0.06) quantal; urgency=low
+
+  * Document that --keep-all-since is [NOT YET IMPLEMENTED]
+    (fixes #4 on GitHub)
+
+ -- Eric Hammond <ehammond@thinksome.com>  Fri, 05 Apr 2013 16:15:31 -0700
+
 ec2-expire-snapshots (0.05) quantal; urgency=low
 
   * Support "all" value for various options like -keep-first-yearly
