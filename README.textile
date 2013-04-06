@@ -18,7 +18,7 @@ h1. OPTIONS
 - @--aws-access-key-id-file KEYFILE@ := - @--aws-secret-access-key-file SECRETFILE@ := Files containing Amazon AWS access key and secret access key. Defaults to environment variables or .awssecret file contents described below.
 - @--aws-credentials-file CREDENTIALSFILE@ := File containing both the Amazon AWS access key and secret access key on separate lines and in that order. Defaults to contents of $AWS_CREDENTIALS environment variable or the value $HOME/.awssecret
 - @--region REGION@ := Specify a different EC2 region like "eu-west-1". Defaults to "us-east-1".
-- @--keep-most-recent COUNT@ := - @--keep-all-since DATETIME@ := - @--keep-first-yearly YEARCOUNT@ := - @--keep-first-quarterly QUARTERCOUNT@ [NOT YET IMPLEMENTED] := - @--keep-first-monthly MONTHCOUNT@ := - @--keep-first-weekly WEEKCOUNT@ := - @--week-starts DAYOFWEEK@ [NOT YET IMPLEMENTED] := - @--keep-first-daily DAYCOUNT@ := - @--keep-first-hourly HOURCOUNT@ := - @--expiration-tag-name TAGNAME@ [NOT YET IMPLEMENTED] := - @--expiration-tag-optional@ [NOT YET IMPLEMENTED] := These options identify which EBS snapshots should be preserved. See the "PRESERVATION OPTIONS" section for more details on what they mean and how to use them.
+- @--keep-most-recent COUNT@ := - @--keep-all-since DATETIME@ [NOT YET IMPLEMENTED] := - @--keep-first-yearly YEARCOUNT@ := - @--keep-first-quarterly QUARTERCOUNT@ [NOT YET IMPLEMENTED] := - @--keep-first-monthly MONTHCOUNT@ := - @--keep-first-weekly WEEKCOUNT@ := - @--week-starts DAYOFWEEK@ [NOT YET IMPLEMENTED] := - @--keep-first-daily DAYCOUNT@ := - @--keep-first-hourly HOURCOUNT@ := - @--expiration-tag-name TAGNAME@ [NOT YET IMPLEMENTED] := - @--expiration-tag-optional@ [NOT YET IMPLEMENTED] := These options identify which EBS snapshots should be preserved. See the "PRESERVATION OPTIONS" section for more details on what they mean and how to use them.
 - @--force-delete-all@ := This dangerous option overrides all other default option values, EBS snapshot tag values, and normal safety measures. All EBS snapshots for the specified EBS volumes are attemped to be deleted. Even the most recent EBS snapshot is deleted. The EBS snapshots are deleted even if the EBS volume does not exist. After this option is used, you will have no EBS snapshots for the specified EBS volume, unless there was some error condition that prevented an EBS snapshot from being deleted.
 This is not a normal EBS snapshot expiration strategy, but is a convenience option for use when throwing away all data associated with an EBS volume that is no longer useful for any purpose.
 
@@ -48,7 +48,7 @@ Unless overridden, the software always preserves the most recent EBS snapshot, a
 
 Please read the descriptions of the preservation options carefully. They might not mean what they look like on first glance. For example, these mean two very different things:
 
-- @--keep-all-since '3 days ago'@ := This option asks the program to preserve *every* EBS snapshot that was created since the current time 3 days ago, i.e., the most recent 72 hours.
+- @--keep-all-since '3 days ago'@ [NOT YET IMPLEMENTED] := This option asks the program to preserve *every* EBS snapshot that was created since the current time 3 days ago, i.e., the most recent 72 hours.
 - @--keep-first-daily 3@ := This option asks the program to preserve the first completed EBS snapshot that was created on each of the last 3 calendar days including "today", "yesterday", and "2 days ago", calculated in UTC. All other EBS snapshots of the EBS volume may be deleted unless there are other conditions specified to prevent that.
 
 h2. PRESERVATION OPTIONS
@@ -60,11 +60,11 @@ There are three basic expiration methodologies supported by this program.
 - 1. Keep Recent := This is the simplest approach where you tell the program to preserve a specifc number of the the most recent EBS snapshots created (e.g., "10") and/or to preserve any EBS snapshots created since a particular date/time in the past (e.g., "7 days ago").
 The specific options related to this approach include:
 - @--keep-most-recent COUNT@ := The most recent COUNT completed EBS snapshots will be preserved. By default, the most recent EBS snapshot is always preserved, but this can be overridden against our recommendation by explicitly specifying "0" in this option.
-- @--keep-all-since DATETIME@ := The EBS snapshots that were created at or after DATETIME will be preserved. The value may be an absolute date/time or it may be relative to now.
+- @--keep-all-since DATETIME@ [NOT YET IMPLEMENTED] := The EBS snapshots that were created at or after DATETIME will be preserved. The value may be an absolute date/time or it may be relative to now.
 See "DATE/TIME FORMATS" below for recommended value formats.
 - 2. Keep One Per Calendar/Clock Cycle := This approach lets you keep many very recent copies of EBS snapshots, somewhat fewer as you go into the near-term past, and more sparse backups as you get to distant history. The time frames involved are hourly, daily, weekly, monthly, quarterly, and yearly. You can specify as many or as few of these time periods as you wish, and save as many cycles of each as you wish.
 The specific options related to this approach include:
-- @--keep-first-hourly HOURCOUNT@ := - @--keep-first-daily DAYCOUNT@ := - @--keep-first-weekly WEEKCOUNT@ := - @--keep-first-monthly MONTHCOUNT@ [NOT YET IMPLEMENTED] := - @--keep-first-quarterly QUARTERCOUNT@ [NOT YET IMPLEMENTED] := - @--keep-first-yearly YEARCOUNT@ := Preserve the first completed EBS snapshot created in each of the most recent COUNT hours/days/weeks/months/quarters/years, respectively, calculated in UTC.
+- @--keep-first-hourly HOURCOUNT@ := - @--keep-first-daily DAYCOUNT@ := - @--keep-first-weekly WEEKCOUNT@ := - @--keep-first-monthly MONTHCOUNT@ := - @--keep-first-quarterly QUARTERCOUNT@ [NOT YET IMPLEMENTED] := - @--keep-first-yearly YEARCOUNT@ := Preserve the first completed EBS snapshot created in each of the most recent COUNT hours/days/weeks/months/quarters/years, respectively, calculated in UTC. The value "all" can be used instead of a number if you wish to keep the first snapshot available in any available period.
 The current hour/day/week/month/quarter/year is considered "1". A COUNT of "all", case insensitive, is equivalent to an infinitely high COUNT.
 A single EBS snasphot may match multiple options. For example, the first EBS snapshot in a month is also going to be the first EBS snapshot for a particular day, but perhaps not the first for any particular week. There may be no completed EBS snapshots in some time periods.
 The first completed EBS snapshot in a month may have been taken on a date later than the first day of the month and the dates don't need to be the same across different months. For example, the first snapshot of the month may have been created on the 3rd. This software simply preserves the oldest completed EBS snapshot in each relevant time period.
@@ -152,7 +152,7 @@ Here are some samples of recommended formats for relative time offsets for "expi
  "+12 hours"
 </pre>
 
-Here are some examples of recommended formats for relative time offsets for the @--keep-all-since@ option:
+Here are some examples of recommended formats for relative time offsets for the @--keep-all-since@ option: [NOT YET IMPLEMENTED]
 
 <pre>
  "1 year ago"
@@ -171,7 +171,7 @@ This simple example saves the most recent 10 snapshots:
      vol-11111111
 </pre>
 
-This example saves the last 7 days of snapshots:
+This example saves the last 7 days of snapshots: [NOT YET IMPLEMENTED]
 
 <pre>
  ec2-expire-snapshots                   \
@@ -201,7 +201,6 @@ This example combines a number of preservation strategies, any one of which coul
 <pre>
  ec2-expire-snapshots                   \
      --keep-most-recent 1               \
-     --keep-all-since "2 hours ago"     \
      --keep-first-hourly 24             \
      --keep-first-daily 7               \
      --keep-first-weekly 4              \
