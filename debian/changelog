@@ -1,3 +1,10 @@
+ec2-expire-snapshots (0.08) quantal; urgency=low
+
+  * Add dependencies on Crypt::SSLeay, IO::Socket::SSL thanks to varunwy.
+    (fixes #5 on github)
+
+ -- Eric Hammond <ehammond@thinksome.com>  Tue, 23 Apr 2013 20:56:04 -0700
+
 ec2-expire-snapshots (0.07) quantal; urgency=low
 
   * Update README.textile
