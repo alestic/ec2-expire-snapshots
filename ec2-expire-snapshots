@@ -17,6 +17,7 @@ use Net::Amazon::EC2;
 
 my $Help                       = 0;
 my $Debug                      = 0;
+my $EC2Debug                   = 0;
 my $Quiet                      = 0;
 my $Noaction                   = 0;
 
@@ -26,7 +27,6 @@ my $aws_access_key_id_file     = $ENV{AWS_ACCESS_KEY_ID};
 my $aws_secret_access_key_file = $ENV{AWS_SECRET_ACCESS_KEY};
 my $aws_credentials_file       = $ENV{AWS_CREDENTIALS};
 my $region                     = undef;
-my $ec2_endpoint               = undef;
 
 my $force_delete_all           = undef;
 my $keep_first_yearly          = undef;
@@ -45,6 +45,7 @@ Getopt::Long::config('no_ignore_case');
 GetOptions(
   'help|?'                       => \$Help,
   'debug'                        => \$Debug,
+  'ec2debug'                     => \$EC2Debug,
   'quiet'                        => \$Quiet,
   'noaction'                     => \$Noaction,
 
@@ -54,7 +55,6 @@ GetOptions(
   'aws-secret-access-key-file=s' => \$aws_secret_access_key_file,
   'aws-credentials-file=s'       => \$aws_credentials_file,
   'region=s'                     => \$region,
-  'ec2-endpoint=s'               => \$ec2_endpoint,
 
   'force-delete-all'             => \$force_delete_all,
   'keep-first-yearly=s'          => \$keep_first_yearly,
@@ -74,8 +74,6 @@ pod2usage(1) if $Help;
 
 my @volume_ids = @ARGV;
 pod2usage(2) unless scalar @volume_ids;
-
-$ec2_endpoint ||= "https://ec2.$region.amazonaws.com" if $region;
 
 my $constraints = {
     force_delete_all           => $force_delete_all,
@@ -107,8 +105,8 @@ $Debug and warn "$Prog: Using AWS access key: $aws_access_key_id\n";
 my $ec2 = Net::Amazon::EC2->new(
     AWSAccessKeyId  => $aws_access_key_id,
     SecretAccessKey => $aws_secret_access_key,
-    ($ec2_endpoint ? (base_url => $ec2_endpoint) : ()),
-    # ($Debug ? (debug => 1) : ()),
+    ($region ? (region => $region) : ()),
+    ($EC2Debug ? (debug => 1) : ()),
 );
 
 my $snapshots_for_volumes = snapshots_for_volumes($ec2);
