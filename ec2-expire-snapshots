@@ -27,6 +27,7 @@ my $aws_secret_access_key_file = $ENV{AWS_SECRET_ACCESS_KEY};
 my $aws_credentials_file       = $ENV{AWS_CREDENTIALS};
 my $region                     = undef;
 my $ec2_endpoint               = undef;
+my $volume_id_in_tag           = undef;
 
 my $force_delete_all           = undef;
 my $keep_first_yearly          = undef;
@@ -55,6 +56,7 @@ GetOptions(
   'aws-credentials-file=s'       => \$aws_credentials_file,
   'region=s'                     => \$region,
   'ec2-endpoint=s'               => \$ec2_endpoint,
+  'volume-id-in-tag=s'           => \$volume_id_in_tag,
 
   'force-delete-all'             => \$force_delete_all,
   'keep-first-yearly=s'          => \$keep_first_yearly,
@@ -111,7 +113,7 @@ my $ec2 = Net::Amazon::EC2->new(
     # ($Debug ? (debug => 1) : ()),
 );
 
-my $snapshots_for_volumes = snapshots_for_volumes($ec2);
+my $snapshots_for_volumes = snapshots_for_volumes($ec2,$volume_id_in_tag);
 for my $volume_id ( @volume_ids ) {
     expire_snapshots_for_volume($ec2, $volume_id,
                                 $snapshots_for_volumes->{$volume_id},
@@ -165,7 +167,7 @@ sub read_awssecret {
 
 # Return hash of { volume_id => [ snapshot, snapshot, ... ], ... }
 sub snapshots_for_volumes {
-    my ($ec2) = @_;
+    my ($ec2,$volume_id_in_tag) = @_;
 
     $Debug and warn "$Prog: Retrieving snapshot list\n";
     my $snapshots;
@@ -176,13 +178,53 @@ sub snapshots_for_volumes {
         die "$Prog: ERROR: describe_snapshots: ", ec2_error_message($@);
     }
 
+    my $volume_id_tags_for_snapshots;
+    if ( defined $volume_id_in_tag ) {
+        $volume_id_tags_for_snapshots =
+            volume_id_tags_for_snapshots($ec2,$volume_id_in_tag);
+    }
+
     my $snapshots_for_volumes = {};
     for my $snapshot ( @$snapshots ) {
         my $volume_id = $snapshot->volume_id;
+        if ( defined $volume_id_in_tag ) {
+            my $snapshot_id = $snapshot->snapshot_id;
+            $volume_id = $volume_id_tags_for_snapshots->{$snapshot_id}
+                if defined $volume_id_tags_for_snapshots->{$snapshot_id};
+        }
         $snapshots_for_volumes->{$volume_id} ||= [];
         push(@{$snapshots_for_volumes->{$volume_id}}, $snapshot);
     }
     return $snapshots_for_volumes;
+}
+
+# Return hash of { snapshot_id => volume_id }
+sub volume_id_tags_for_snapshots {
+    my ($ec2,$volume_id_in_tag) = @_;
+
+    $Debug and warn "$Prog: Retrieving snapshot tag list\n";
+    my $volume_id_tags_for_snapshots = {};
+    my $params = {};
+    push(@{$params->{"Filter.Name"}},  "resource-type");
+    push(@{$params->{"Filter.Value"}}, "snapshot");
+    push(@{$params->{"Filter.Name"}},  "key");
+    push(@{$params->{"Filter.Value"}}, $volume_id_in_tag);
+    my $all_tags;
+    eval { 
+        $all_tags = $ec2->describe_tags(%$params);
+    };
+    if ( $@  ){
+        die "$Prog: ERROR: describe_tags: ", ec2_error_message($@);
+    }
+
+    for my $tag ( @$all_tags ) {
+        my $snapshot_id = $tag->resource_id;
+        my $volume_id = $tag->value;
+        $Debug and warn "$Prog: mapping snapshot $snapshot_id ",
+            "to use volume-id $volume_id\n";
+        $volume_id_tags_for_snapshots->{$snapshot_id} = $volume_id;
+    }
+    return $volume_id_tags_for_snapshots;
 }
 
 
@@ -555,6 +597,15 @@ $AWS_CREDENTIALS environment variable or the value $HOME/.awssecret
 
 Specify a different EC2 region like "eu-west-1".  Defaults to
 "us-east-1".
+
+=item C<--volume-id-in-tag TAGNAME>
+
+Specifies the name of a tag to look for on each EBS snapshot
+indicating what volume-id to associate with this snapshot, 
+replacing the volume-id that is returned by the API. The common
+use is for when snapshots are copied across regions. This is so
+a consistent expiration schedule can be kept, without regards to
+the new volume-id generated each time a copy is made.
 
 =item C<--keep-most-recent COUNT>
 
