@@ -1,3 +1,11 @@
+ec2-expire-snapshots (0.09) quantal; urgency=low
+
+  * Add --volume-id-in-tag option, thanks to dialt0ne
+    (fixes #7 on github)
+    (fixes #10 on github)
+
+ -- Eric Hammond <ehammond@thinksome.com>  Mon, 08 Jul 2013 15:19:06 -0700
+
 ec2-expire-snapshots (0.08) quantal; urgency=low
 
   * Add dependencies on Crypt::SSLeay, IO::Socket::SSL thanks to varunwy.
