@@ -1,6 +1,6 @@
 ec2-expire-snapshots (0.09) quantal; urgency=low
 
-  * Add --volume-id-in-tag option, thanks to dialt0ne
+  * Add --volume-id-in-tag option, thanks to Anthony Tonns
     (fixes #7 on github)
     (fixes #10 on github)
 
