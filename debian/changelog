@@ -1,3 +1,11 @@
+ec2-expire-snapshots (0.10) quantal; urgency=low
+
+  * Add --delete-delay option, thanks to Wayne Robinson
+    (fixes #11 on github)
+    (fixes #12 on github)
+
+ -- Eric Hammond <ehammond@thinksome.com>  Thu, 11 Jul 2013 19:07:12 -0700
+
 ec2-expire-snapshots (0.09) quantal; urgency=low
 
   * Add --volume-id-in-tag option, thanks to Anthony Tonns
