@@ -28,6 +28,7 @@ my $aws_credentials_file       = $ENV{AWS_CREDENTIALS};
 my $region                     = undef;
 my $ec2_endpoint               = undef;
 my $volume_id_in_tag           = undef;
+my $delete_delay               = undef;
 
 my $force_delete_all           = undef;
 my $keep_first_yearly          = undef;
@@ -41,8 +42,6 @@ my $keep_most_recent           = undef;
 my $keep_all_since             = undef;
 my $expiration_tag_name        = undef;
 my $expiration_tag_optional    = undef;
-
-my $delete_delay               = undef;
 
 Getopt::Long::config('no_ignore_case');
 GetOptions(
@@ -59,6 +58,7 @@ GetOptions(
   'region=s'                     => \$region,
   'ec2-endpoint=s'               => \$ec2_endpoint,
   'volume-id-in-tag=s'           => \$volume_id_in_tag,
+  'delete-delay=i'               => \$delete_delay,
 
   'force-delete-all'             => \$force_delete_all,
   'keep-first-yearly=s'          => \$keep_first_yearly,
@@ -70,8 +70,6 @@ GetOptions(
   'keep-all-since=s'             => \$keep_all_since,
   'expiration-tag-name=s'        => \$expiration_tag_name,
   'expiration-tag-optional'      => \$expiration_tag_optional,
-
-  'delete-delay=i'               => \$delete_delay
 ) or pod2usage(2);
 
 my $filesystem_frozen = 0;
