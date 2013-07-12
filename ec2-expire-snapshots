@@ -45,12 +45,11 @@ my $expiration_tag_optional    = undef;
 my $delete_delay               = undef;
 
 Getopt::Long::config('no_ignore_case');
-Getopt::Long::config('no_auto_abbrev');
 GetOptions(
-  'h|help|?'                     => \$Help,
-  'd|debug'                      => \$Debug,
-  'q|quiet'                      => \$Quiet,
-  'n|noaction'                   => \$Noaction,
+  'help|?'                       => \$Help,
+  'debug'                        => \$Debug,
+  'quiet'                        => \$Quiet,
+  'noaction'                     => \$Noaction,
 
   'aws-access-key-id=s'          => \$aws_access_key_id,
   'aws-secret-access-key=s'      => \$aws_secret_access_key,
