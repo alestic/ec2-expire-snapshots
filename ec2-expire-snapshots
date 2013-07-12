@@ -45,10 +45,10 @@ my $expiration_tag_optional    = undef;
 
 Getopt::Long::config('no_ignore_case');
 GetOptions(
-  'help|?'                       => \$Help,
-  'debug'                        => \$Debug,
-  'quiet'                        => \$Quiet,
-  'noaction'                     => \$Noaction,
+  'h|help|?'                      => \$Help,
+  'd|debug'                       => \$Debug,
+  'q|quiet'                       => \$Quiet,
+  'n|noaction'                    => \$Noaction,
 
   'aws-access-key-id=s'          => \$aws_access_key_id,
   'aws-secret-access-key=s'      => \$aws_secret_access_key,
