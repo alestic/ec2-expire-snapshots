@@ -42,12 +42,15 @@ my $keep_all_since             = undef;
 my $expiration_tag_name        = undef;
 my $expiration_tag_optional    = undef;
 
+my $delete_delay               = undef;
+
 Getopt::Long::config('no_ignore_case');
+Getopt::Long::config('no_auto_abbrev');
 GetOptions(
-  'help|?'                       => \$Help,
-  'debug'                        => \$Debug,
-  'quiet'                        => \$Quiet,
-  'noaction'                     => \$Noaction,
+  'h|help|?'                     => \$Help,
+  'd|debug'                      => \$Debug,
+  'q|quiet'                      => \$Quiet,
+  'n|noaction'                   => \$Noaction,
 
   'aws-access-key-id=s'          => \$aws_access_key_id,
   'aws-secret-access-key=s'      => \$aws_secret_access_key,
@@ -68,6 +71,8 @@ GetOptions(
   'keep-all-since=s'             => \$keep_all_since,
   'expiration-tag-name=s'        => \$expiration_tag_name,
   'expiration-tag-optional'      => \$expiration_tag_optional,
+
+  'delete-delay=i'               => \$delete_delay
 ) or pod2usage(2);
 
 my $filesystem_frozen = 0;
@@ -250,7 +255,13 @@ sub expire_snapshots_for_volume {
                                       " Deleting $count_to_delete snapshot",
                                       ($count_to_delete == 1 ? "" : "s"),"\n";
 
+    my $index = 0;
     for my $snapshot ( @$snapshots_to_delete ) {
+        if ( $index > 0 && $delete_delay ) {
+            $Quiet or warn "$Prog: Sleeping $delete_delay second/s between deletes\n";
+            sleep $delete_delay;
+        }
+
         my $snapshot_id = $snapshot->{snapshot_id};
         $Quiet or warn "$Prog: $volume_id: Deleting snapshot: $snapshot_id (",
             $snapshot->start_time, ")\n";
@@ -264,6 +275,8 @@ sub expire_snapshots_for_volume {
                     ec2_error_message($@);
             }
         }
+
+        $index++;
     }
 }
 
@@ -606,6 +619,12 @@ replacing the volume-id that is returned by the API. The common
 use is for when snapshots are copied across regions. This is so
 a consistent expiration schedule can be kept, without regards to
 the new volume-id generated each time a copy is made.
+
+=item C<--delete-delay DELAY_IN_SECONDS>
+
+Specifies the number of seconds to wait between deleting
+snapshots. Allows ec2-expire-snapshots to run without hitting
+the AWS rate limiter.
 
 =item C<--keep-most-recent COUNT>
 
