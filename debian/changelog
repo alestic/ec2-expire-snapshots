@@ -1,3 +1,11 @@
+ec2-expire-snapshots (0.12) quantal; urgency=low
+
+  * Fix --region option, thanks to Paul Gibson
+    (fixes #8 on github)
+  * Add --ec2debug option, thanks to Paul Gibson
+
+ -- Eric Hammond <ehammond@thinksome.com>  Mon, 29 Jul 2013 18:26:31 -0700
+
 ec2-expire-snapshots (0.11) quantal; urgency=low
 
   * Re-add waynerobinson's fix to get "-d" to mean "--debug" per the manpage
