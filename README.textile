@@ -235,7 +235,6 @@ h1. ENVIRONMENT
 
 h1. FILES
 
-- $HOME/.my.cnf := Default values for MySQL user and password are sought here in the standard format.
 - $HOME/.awssecret := Default values for access key and secret access keys are sought here. Can be overridden by environment variables and command line options.
 
 h1. SEE ALSO
