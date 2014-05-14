@@ -117,7 +117,7 @@ my $ec2 = Net::Amazon::EC2->new(
     # ($Debug ? (debug => 1) : ()),
   );
 
-my $snapshots_for_volumes = snapshots_for_volumes($ec2,$volume_id_in_tag);
+my $snapshots_for_volumes = snapshots_for_volumes($ec2,$volume_id_in_tag,@volume_ids);
 for my $volume_id ( @volume_ids ) {
     expire_snapshots_for_volume($ec2, $volume_id,
                                 $snapshots_for_volumes->{$volume_id},
@@ -171,64 +171,27 @@ sub read_awssecret {
 
 # Return hash of { volume_id => [ snapshot, snapshot, ... ], ... }
 sub snapshots_for_volumes {
-    my ($ec2,$volume_id_in_tag) = @_;
+    my ($ec2,$volume_id_in_tag,@volume_ids) = @_;
+
+    my @filters;
+    $volume_id_in_tag and push @filters, ['tag-key', $volume_id_in_tag];
+    @volume_ids       and push @filters, ['volume-id', @volume_ids];
 
     $Debug and warn "$Prog: Retrieving snapshot list\n";
     my $snapshots;
     eval {
-        $snapshots = $ec2->describe_snapshots();
+        $snapshots = $ec2->describe_snapshots((@filters ? (Filter => \@filters) : ()));
     };
     if ( $@  ){
         die "$Prog: ERROR: describe_snapshots: ", ec2_error_message($@);
     }
 
-    my $volume_id_tags_for_snapshots;
-    if ( defined $volume_id_in_tag ) {
-        $volume_id_tags_for_snapshots =
-            volume_id_tags_for_snapshots($ec2,$volume_id_in_tag);
+    my %snapshots_for_volumes;
+    foreach my $snapshot (@$snapshots) {
+      push @{$snapshots_for_volumes{$snapshot->volume_id}}, $snapshot;
     }
 
-    my $snapshots_for_volumes = {};
-    for my $snapshot ( @$snapshots ) {
-        my $volume_id = $snapshot->volume_id;
-        if ( defined $volume_id_in_tag ) {
-            my $snapshot_id = $snapshot->snapshot_id;
-            $volume_id = $volume_id_tags_for_snapshots->{$snapshot_id}
-                if defined $volume_id_tags_for_snapshots->{$snapshot_id};
-        }
-        $snapshots_for_volumes->{$volume_id} ||= [];
-        push(@{$snapshots_for_volumes->{$volume_id}}, $snapshot);
-    }
-    return $snapshots_for_volumes;
-}
-
-# Return hash of { snapshot_id => volume_id }
-sub volume_id_tags_for_snapshots {
-    my ($ec2,$volume_id_in_tag) = @_;
-
-    $Debug and warn "$Prog: Retrieving snapshot tag list\n";
-    my $volume_id_tags_for_snapshots = {};
-    my $params = {};
-    push(@{$params->{"Filter.Name"}},  "resource-type");
-    push(@{$params->{"Filter.Value"}}, "snapshot");
-    push(@{$params->{"Filter.Name"}},  "key");
-    push(@{$params->{"Filter.Value"}}, $volume_id_in_tag);
-    my $all_tags;
-    eval { 
-        $all_tags = $ec2->describe_tags(%$params);
-    };
-    if ( $@  ){
-        die "$Prog: ERROR: describe_tags: ", ec2_error_message($@);
-    }
-
-    for my $tag ( @$all_tags ) {
-        my $snapshot_id = $tag->resource_id;
-        my $volume_id = $tag->value;
-        $Debug and warn "$Prog: mapping snapshot $snapshot_id ",
-            "to use volume-id $volume_id\n";
-        $volume_id_tags_for_snapshots->{$snapshot_id} = $volume_id;
-    }
-    return $volume_id_tags_for_snapshots;
+    return \%snapshots_for_volumes;
 }
 
 
