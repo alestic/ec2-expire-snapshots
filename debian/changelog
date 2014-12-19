@@ -4,7 +4,7 @@ ec2-expire-snapshots (0.13) trusty; urgency=medium
     (fixes #14 on github)
   * Make snapshot filtering more efficient, thanks to yhuyasha
 
- -- Eric Hammond <ehammond@thinksome.com>  Fri, 19 Dec 2014 14:57:00 -0800
+ -- Eric Hammond <ehammond@thinksome.com>  Fri, 19 Dec 2014 15:06:43 -0800
 
 ec2-expire-snapshots (0.12) quantal; urgency=low
 
