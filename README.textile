@@ -17,7 +17,7 @@ h1. OPTIONS
 - @--aws-access-key-id KEY@ := - @--aws-secret-access-key SECRET@ := Amazon AWS access key and secret access key. Defaults to environment variables or .awssecret file contents described below.
 - @--aws-access-key-id-file KEYFILE@ := - @--aws-secret-access-key-file SECRETFILE@ := Files containing Amazon AWS access key and secret access key. Defaults to environment variables or .awssecret file contents described below.
 - @--aws-credentials-file CREDENTIALSFILE@ := File containing both the Amazon AWS access key and secret access key on separate lines and in that order. Defaults to contents of $AWS_CREDENTIALS environment variable or the value $HOME/.awssecret
-- @--use-iam-role@ := The instance is part of an IAM role that that has permission to manage snapshots so there is no need to specify access key or secret.
+- --use-iam-role := The instance is part of an IAM role that that has permission to create snapshots so there is no need to specify access key or secret.
 - @--region REGION@ := Specify a different EC2 region like "eu-west-1". Defaults to "us-east-1".
 - @--volume-id-in-tag TAGNAME@ := Specifies the name of a tag to look for on each EBS snapshot indicating what volume-id to associate with this snapshot, replacing the volume-id that is returned by the API. The common use is for when snapshots are copied across regions. This is so a consistent expiration schedule can be kept, without regards to the new volume-id generated each time a copy is made.
 - @--delete-delay DELAY_IN_SECONDS@ := Specifies the number of seconds to wait between deleting snapshots. Allows ec2-expire-snapshots to run without hitting the AWS rate limiter.
@@ -235,6 +235,7 @@ h1. ENVIRONMENT
 
 h1. FILES
 
+- $HOME/.my.cnf := Default values for MySQL user and password are sought here in the standard format.
 - $HOME/.awssecret := Default values for access key and secret access keys are sought here. Can be overridden by environment variables and command line options.
 
 h1. SEE ALSO
@@ -270,6 +271,8 @@ Thanks to the following for performing tests on early versions, providing feedba
   Christian Marquardt
   varunwy
   Anthony Tonns
+  Paul Gibson
+  yhuyasha
 </pre>
 
 h1. AUTHOR

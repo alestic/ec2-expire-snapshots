@@ -1,3 +1,11 @@
+ec2-expire-snapshots (0.13) UNRELEASED; urgency=medium
+
+  * Add --use-iam-role option, thanks to ynuyasha
+    (fixes #14 on github)
+  * Make snapshot filtering more efficient, thanks to yhuyasha
+
+ -- Eric Hammond <ehammond@thinksome.com>  Fri, 19 Dec 2014 14:57:00 -0800
+
 ec2-expire-snapshots (0.12) quantal; urgency=low
 
   * Fix --region option, thanks to Paul Gibson
