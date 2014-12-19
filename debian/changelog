@@ -1,4 +1,4 @@
-ec2-expire-snapshots (0.13) UNRELEASED; urgency=medium
+ec2-expire-snapshots (0.13) trusty; urgency=medium
 
   * Add --use-iam-role option, thanks to ynuyasha
     (fixes #14 on github)
