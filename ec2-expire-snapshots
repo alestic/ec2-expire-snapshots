@@ -26,7 +26,9 @@ my $aws_secret_access_key      = $ENV{AWS_SECRET_ACCESS_KEY};
 my $aws_access_key_id_file     = $ENV{AWS_ACCESS_KEY_ID};
 my $aws_secret_access_key_file = $ENV{AWS_SECRET_ACCESS_KEY};
 my $aws_credentials_file       = $ENV{AWS_CREDENTIALS};
+my $use_iam_role               = 0;
 my $region                     = undef;
+my $ec2_endpoint               = undef;
 my $volume_id_in_tag           = undef;
 my $delete_delay               = undef;
 
@@ -56,6 +58,7 @@ GetOptions(
   'aws-access-key-id-file=s'     => \$aws_access_key_id_file,
   'aws-secret-access-key-file=s' => \$aws_secret_access_key_file,
   'aws-credentials-file=s'       => \$aws_credentials_file,
+  'use-iam-role'                 => \$use_iam_role,
   'region=s'                     => \$region,
   'volume-id-in-tag=s'           => \$volume_id_in_tag,
   'delete-delay=i'               => \$delete_delay,
@@ -78,6 +81,8 @@ pod2usage(1) if $Help;
 
 my @volume_ids = @ARGV;
 pod2usage(2) unless scalar @volume_ids;
+
+$ec2_endpoint ||= "https://ec2.$region.amazonaws.com" if $region;
 
 my $constraints = {
     force_delete_all           => $force_delete_all,
@@ -102,18 +107,17 @@ my $constraints = {
  $aws_credentials_file,
 );
 die "$Prog: ERROR: Can't find AWS access key or secret access key"
-  unless $aws_access_key_id and $aws_secret_access_key;
+  unless $use_iam_role or ($aws_access_key_id and $aws_secret_access_key);
 $Debug and warn "$Prog: Using AWS access key: $aws_access_key_id\n";
 
-# EC2 API object
 my $ec2 = Net::Amazon::EC2->new(
-    AWSAccessKeyId  => $aws_access_key_id,
-    SecretAccessKey => $aws_secret_access_key,
-    ($region ? (region => $region) : ()),
-    ($EC2Debug ? (debug => 1) : ()),
-);
+    ((! $use_iam_role) ? (AWSAccessKeyId  => $aws_access_key_id,) : () ),
+    ((! $use_iam_role) ? (SecretAccessKey => $aws_secret_access_key) : () ),
+    ($ec2_endpoint ? (base_url => $ec2_endpoint) : ()),
+    # ($Debug ? (debug => 1) : ()),
+  );
 
-my $snapshots_for_volumes = snapshots_for_volumes($ec2,$volume_id_in_tag);
+my $snapshots_for_volumes = snapshots_for_volumes($ec2,$volume_id_in_tag,@volume_ids);
 for my $volume_id ( @volume_ids ) {
     expire_snapshots_for_volume($ec2, $volume_id,
                                 $snapshots_for_volumes->{$volume_id},
@@ -167,64 +171,27 @@ sub read_awssecret {
 
 # Return hash of { volume_id => [ snapshot, snapshot, ... ], ... }
 sub snapshots_for_volumes {
-    my ($ec2,$volume_id_in_tag) = @_;
+    my ($ec2,$volume_id_in_tag,@volume_ids) = @_;
+
+    my @filters;
+    $volume_id_in_tag and push @filters, ['tag-key', $volume_id_in_tag];
+    @volume_ids       and push @filters, ['volume-id', @volume_ids];
 
     $Debug and warn "$Prog: Retrieving snapshot list\n";
     my $snapshots;
     eval {
-        $snapshots = $ec2->describe_snapshots();
+        $snapshots = $ec2->describe_snapshots((@filters ? (Filter => \@filters) : ()));
     };
     if ( $@  ){
         die "$Prog: ERROR: describe_snapshots: ", ec2_error_message($@);
     }
 
-    my $volume_id_tags_for_snapshots;
-    if ( defined $volume_id_in_tag ) {
-        $volume_id_tags_for_snapshots =
-            volume_id_tags_for_snapshots($ec2,$volume_id_in_tag);
+    my %snapshots_for_volumes;
+    foreach my $snapshot (@$snapshots) {
+      push @{$snapshots_for_volumes{$snapshot->volume_id}}, $snapshot;
     }
 
-    my $snapshots_for_volumes = {};
-    for my $snapshot ( @$snapshots ) {
-        my $volume_id = $snapshot->volume_id;
-        if ( defined $volume_id_in_tag ) {
-            my $snapshot_id = $snapshot->snapshot_id;
-            $volume_id = $volume_id_tags_for_snapshots->{$snapshot_id}
-                if defined $volume_id_tags_for_snapshots->{$snapshot_id};
-        }
-        $snapshots_for_volumes->{$volume_id} ||= [];
-        push(@{$snapshots_for_volumes->{$volume_id}}, $snapshot);
-    }
-    return $snapshots_for_volumes;
-}
-
-# Return hash of { snapshot_id => volume_id }
-sub volume_id_tags_for_snapshots {
-    my ($ec2,$volume_id_in_tag) = @_;
-
-    $Debug and warn "$Prog: Retrieving snapshot tag list\n";
-    my $volume_id_tags_for_snapshots = {};
-    my $params = {};
-    push(@{$params->{"Filter.Name"}},  "resource-type");
-    push(@{$params->{"Filter.Value"}}, "snapshot");
-    push(@{$params->{"Filter.Name"}},  "key");
-    push(@{$params->{"Filter.Value"}}, $volume_id_in_tag);
-    my $all_tags;
-    eval { 
-        $all_tags = $ec2->describe_tags(%$params);
-    };
-    if ( $@  ){
-        die "$Prog: ERROR: describe_tags: ", ec2_error_message($@);
-    }
-
-    for my $tag ( @$all_tags ) {
-        my $snapshot_id = $tag->resource_id;
-        my $volume_id = $tag->value;
-        $Debug and warn "$Prog: mapping snapshot $snapshot_id ",
-            "to use volume-id $volume_id\n";
-        $volume_id_tags_for_snapshots->{$snapshot_id} = $volume_id;
-    }
-    return $volume_id_tags_for_snapshots;
+    return \%snapshots_for_volumes;
 }
 
 
@@ -600,6 +567,11 @@ described below.
 File containing both the Amazon AWS access key and secret access
 key on separate lines and in that order.  Defaults to contents of
 $AWS_CREDENTIALS environment variable or the value $HOME/.awssecret
+
+=item  --use-iam-role
+
+The instance is part of an IAM role that that has permission to create
+snapshots so there is no need to specify access key or secret.
 
 =item C<--region REGION>
 
