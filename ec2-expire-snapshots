@@ -235,9 +235,9 @@ sub expire_snapshots_for_volume {
             };
             if ( my $error = $@  ){
                 if ( ref $error && ref $error eq 'Net::Amazon::EC2::Errors' ) {
-                    foreach my $e ($error->errors()) {
+                    foreach my $e (@{$error->errors}) {
                         if ($e->code eq 'InvalidSnapshot.InUse') {
-                            warn "Skipping deleting snapshot $snapshot_id: $e->message()\n";
+                            warn "Skipping deleting snapshot $snapshot_id: $e\n";
                             next SNAPSHOT;
                         }
                     }
