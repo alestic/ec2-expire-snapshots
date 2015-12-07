@@ -218,6 +218,7 @@ sub expire_snapshots_for_volume {
                                       ($count_to_delete == 1 ? "" : "s"),"\n";
 
     my $index = 0;
+  SNAPSHOT:
     for my $snapshot ( @$snapshots_to_delete ) {
         if ( $index > 0 && $delete_delay ) {
             $Quiet or warn "$Prog: Sleeping $delete_delay second/s between deletes\n";
@@ -232,9 +233,17 @@ sub expire_snapshots_for_volume {
                 $ec2->delete_snapshot(SnapshotId => $snapshot_id)
                     or die "$Prog: ERROR deleting snapshot: $snapshot_id\n";
             };
-            if ( $@  ){
+            if ( my $errors = $@ ){
+                if ( ref $errors && ref $errors eq 'Net::Amazon::EC2::Errors' ) {
+                    foreach my $error (@{$errors->errors}) {
+                        if ($error->code eq 'InvalidSnapshot.InUse') {
+                            warn "Skipping deleting snapshot $snapshot_id: $error\n";
+                            next SNAPSHOT;
+                        }
+                    }
+                }
                 die "$Prog: ERROR: delete_snapshot $snapshot_id: ",
-                    ec2_error_message($@);
+                    ec2_error_message($errors);
             }
         }
 
