@@ -1,4 +1,4 @@
-ec2-expire-snapshots (0.14) UNRELEASED; urgency=medium
+ec2-expire-snapshots (0.14) vivid; urgency=medium
 
   * Warn, not die, when unable to delete snapshot in use,
     thanks to Gustavo Chaves, Wayne Robinson
@@ -6,7 +6,7 @@ ec2-expire-snapshots (0.14) UNRELEASED; urgency=medium
     (fixes #16 on github)
     (fixes #3 on github)
 
- -- Eric Hammond <ehammond@thinksome.com>  Sun, 06 Dec 2015 17:03:50 -0800
+ -- Eric Hammond <ehammond@thinksome.com>  Mon, 07 Dec 2015 13:25:16 -0800
 
 ec2-expire-snapshots (0.13) trusty; urgency=medium
 
